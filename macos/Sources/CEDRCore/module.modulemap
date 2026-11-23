@@ -1,0 +1,5 @@
+module CEDRCore [system] {
+    header "../../../core/edr-ffi/include/edr_core.h"
+    link "edr_ffi"
+    export *
+}
