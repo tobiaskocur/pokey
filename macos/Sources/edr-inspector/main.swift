@@ -175,7 +175,7 @@ func mapFile(_ job: Job) throws -> UnsafeRawBufferPointer {
 }
 
 func stage2(_ data: UnsafeRawBufferPointer, job: Job) -> Stage2Reply {
-    func reply(_ o: Outcome, _ w: UInt64 = 0, _ h: UInt64 = 0, _ frames: UInt64 = 0, _ detail: String) -> Stage2Reply {
+    func reply(_ o: Outcome, _ w: UInt64 = 0, _ h: UInt64 = 0, frames: UInt64 = 0, detail: String) -> Stage2Reply {
         Stage2Reply(jobID: job.id, outcome: o, width: w, height: h, frames: frames, detail: detail)
     }
     guard let base = data.baseAddress,
@@ -190,17 +190,17 @@ func stage2(_ data: UnsafeRawBufferPointer, job: Job) -> Stage2Reply {
     else { return reply(.decodeError, frames: frames, detail: "no image properties") }
     let (pixels, overflow) = w.multipliedReportingOverflow(by: h)
     guard !overflow, pixels <= job.limits.maxPixels else {
-        return reply(.resourceExceeded, w, h, frames, detail: "\(w)x\(h) over the pixel limit")
+        return reply(.resourceExceeded, w, h, frames: frames, detail: "\(w)x\(h) over the pixel limit")
     }
     let thumbOpts = [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: 256,
                      kCGImageSourceShouldCache: false] as CFDictionary
     guard CGImageSourceCreateThumbnailAtIndex(src, 0, thumbOpts) != nil else {
-        return reply(.decodeError, w, h, frames, detail: "thumbnail decode failed")
+        return reply(.decodeError, w, h, frames: frames, detail: "thumbnail decode failed")
     }
     guard CGImageSourceCreateImageAtIndex(src, 0, [kCGImageSourceShouldCacheImmediately: true] as CFDictionary) != nil,
           CGImageSourceGetStatus(src) == .statusComplete
-    else { return reply(.decodeError, w, h, frames, detail: "full decode failed") }
-    return reply(.clean, w, h, frames, detail: "")
+    else { return reply(.decodeError, w, h, frames: frames, detail: "full decode failed") }
+    return reply(.clean, w, h, frames: frames, detail: "")
 }
 
 // MARK: main
