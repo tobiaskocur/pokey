@@ -1,5 +1,6 @@
 # XcodeGen spec: `make xcode` (needs xcodegen, Xcode 16+, and the Rust static
-# library from `make core`). Identity comes from Config/Identity.xcconfig.
+# library from `make core`). Identity comes from Config/Identity.xcconfig, the
+# version from Config/Version.xcconfig.
 #
 # Pokey.app (host, /Applications)
 #   Contents/MacOS/Pokey             host UI: installs the pieces below
@@ -19,8 +20,6 @@ configFiles:
 settings:
   base:
     SWIFT_VERSION: "5.9"
-    MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: "1"
     ARCHS: "arm64 x86_64"
     ONLY_ACTIVE_ARCH: NO
     ENABLE_HARDENED_RUNTIME: YES
@@ -114,8 +113,11 @@ targets:
   PokeyAlerts:
     type: application
     platform: macOS
-    sources: [Sources/pokey-ui]
+    sources:
+      - Sources/pokey-ui
+      - Resources/Assets.xcassets
     settings:
+      ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
       PRODUCT_NAME: Pokey Alerts
       PRODUCT_BUNDLE_IDENTIFIER: $(POKEY_BUNDLE_PREFIX).ui
       INFOPLIST_FILE: Config/UI-Info.plist
@@ -128,8 +130,15 @@ targets:
   PokeyHost:
     type: application
     platform: macOS
-    sources: [Sources/PokeyHost]
+    sources:
+      - Sources/PokeyHost
+      # Xcode 26 builds the icon from AppIcon.icon (Icon Composer) and older
+      # Xcode from AppIcon.appiconset in the asset catalog.
+      - Resources/Assets.xcassets
+      - path: Resources/AppIcon.icon
+        buildPhase: resources
     settings:
+      ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
       PRODUCT_NAME: Pokey
       PRODUCT_BUNDLE_IDENTIFIER: $(POKEY_BUNDLE_PREFIX).host
       INFOPLIST_FILE: Config/Host-Info.plist

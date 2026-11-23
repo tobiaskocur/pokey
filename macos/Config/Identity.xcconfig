@@ -1,5 +1,7 @@
 // Deployment identity. Override in Identity.local.xcconfig (not committed) or
 // on the xcodebuild command line; nothing below is a real identity.
+#include "Version.xcconfig"
+
 POKEY_TEAM_ID = ABCDE12345
 POKEY_BUNDLE_PREFIX = sk.tobiaskocur.pokey
 // k of the keys in trust-roots.txt must sign a release certificate.
