@@ -231,8 +231,10 @@ impl ReleaseCert {
         if f[0] != 1 || f[51] != 0 {
             return Err(BundleError::MalformedSignatureBlock);
         }
+        // k == 0 is a well-formed but unsigned certificate (as written by
+        // `rulec cert-new`); verification rejects it via the threshold check.
         let k = f[1] as usize;
-        if k == 0 || k > MAX_ROOT_SIGS || b.len() != CERT_FIXED_LEN + k * ROOT_SIG_LEN {
+        if k > MAX_ROOT_SIGS || b.len() != CERT_FIXED_LEN + k * ROOT_SIG_LEN {
             return Err(BundleError::MalformedSignatureBlock);
         }
         let mut root_sigs = Vec::with_capacity(k);
