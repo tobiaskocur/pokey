@@ -58,6 +58,8 @@ final class InspectorPool {
     private var busy = false
     private var nextJobID: UInt64 = 1
     private var consecutiveSpawnFailures = 0
+    /// After 5 failures in a row spawning pauses; one retry per minute after that.
+    private var spawnRetryAt = DispatchTime(uptimeNanoseconds: 0)
     var rules: Rules?
 
     struct Job {
@@ -77,7 +79,8 @@ final class InspectorPool {
     /// Keep one worker pre-warmed with the current rules.
     func ensureSpare() {
         dispatchPrecondition(condition: .onQueue(queue))
-        guard spare == nil, let rules, consecutiveSpawnFailures < 5 else { return }
+        guard spare == nil, let rules,
+              consecutiveSpawnFailures < 5 || DispatchTime.now() >= spawnRetryAt else { return }
         spare = spawn(rules: rules)
     }
 
@@ -215,7 +218,7 @@ final class InspectorPool {
         let rc = posix_spawn(&pid, executable, &fa, &attr, argv, envp)
         guard rc == 0 else {
             close(fds[1])
-            consecutiveSpawnFailures += 1
+            spawnFailed()
             log.error("posix_spawn inspector failed: \(rc)")
             return nil
         }
@@ -282,6 +285,11 @@ final class InspectorPool {
         if let c = w.connection { xpc_connection_send_message(c, msg) }
     }
 
+    private func spawnFailed() {
+        consecutiveSpawnFailures += 1
+        if consecutiveSpawnFailures >= 5 { spawnRetryAt = .now() + .seconds(60) }
+    }
+
     private func fail(_ w: Worker) {
         w.protocolError = true
         kill(w.pid, SIGKILL)
@@ -305,7 +313,7 @@ final class InspectorPool {
         }
         if spare === w {
             spare = nil
-            consecutiveSpawnFailures += 1
+            spawnFailed()
             log.error("pre-warmed inspector \(w.pid) died before READY: \(String(describing: exit))")
             if consecutiveSpawnFailures < 5 {
                 queue.asyncAfter(deadline: .now() + .seconds(consecutiveSpawnFailures)) { [weak self] in
