@@ -38,7 +38,7 @@ Rule bundles have their own integer version (`pokey-rulec compile --version`), i
 2. Pull requests opened by GitHub Actions do not start other workflows. Close and reopen the release pull request once so CI runs on it.
 3. Squash-merge it. That tags `vX.Y.Z`, publishes the GitHub release and attaches the binaries, `SHA256SUMS`, the SBOM and the provenance attestation.
 
-To build every release asset without publishing anything, run the `release` workflow by hand (Actions → release → Run workflow). The assets are kept as the `release-dry-run` workflow artifact.
+To build every release asset without publishing anything, run the `release` workflow by hand (Actions → release → Run workflow). A pull request that changes `release.yml` or `release-please-config.json` does the same dry run. The assets are kept as the `release-dry-run` workflow artifact.
 
 After the first release, remove `"release-as": "0.1.0"` from `release-please-config.json`; otherwise every release stays at 0.1.0.
 
