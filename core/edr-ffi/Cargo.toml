@@ -10,3 +10,7 @@ crate-type = ["staticlib", "rlib"]
 
 [dependencies]
 edr-core = { path = "../edr-core" }
+
+[dev-dependencies]
+edr-rulec = { path = "../edr-rulec" }
+ed25519-dalek.workspace = true
