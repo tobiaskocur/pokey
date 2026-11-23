@@ -1,4 +1,9 @@
-# Pokey
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="branding/wordmark/lockup-dark.svg">
+    <img src="branding/wordmark/lockup-light.svg" alt="Pokey" width="280">
+  </picture>
+</h1>
 
 A macOS agent that scans files downloaded from the internet in a sandboxed process against signed YARA-X and file-format rules.
 
@@ -23,7 +28,7 @@ The rule compiler and the scan engine are Rust (`core/`); the macOS processes ar
 
 ## Building
 
-Requires Rust 1.93.1 and Swift 6. The macOS targets need Xcode 16 and [XcodeGen](https://github.com/yonaskolb/XcodeGen).
+Requires Rust 1.95 and Swift 6. The macOS targets need Xcode 16 and [XcodeGen](https://github.com/yonaskolb/XcodeGen).
 
 Rust core and rule compiler (Linux or macOS):
 
@@ -65,6 +70,23 @@ $R scan --rules rules path/to/file.png
 
 Run `pokey-rulec` with no arguments to list the key, certificate, signing and verification commands. The GIF above is [docs/demo/demo.sh](docs/demo/demo.sh).
 
+## Install
+
+Releases are on the [Releases page](https://github.com/tobiaskocur/pokey/releases). Each one has:
+
+- `pokey-rulec` for Linux (x86_64, aarch64) and macOS (universal)
+- `Pokey-<version>-unsigned-dev-only.zip`: the app with its system extension, unsigned. It does not run on a normal Mac; it is there to inspect or to sign yourself ([docs/deploying.md](docs/deploying.md)).
+- `SHA256SUMS`, an SPDX SBOM and a build provenance attestation
+
+Check a download:
+
+```sh
+sha256sum --check --ignore-missing SHA256SUMS
+gh attestation verify pokey-rulec-x86_64-unknown-linux-gnu.tar.gz -R tobiaskocur/pokey
+```
+
+Changes per version are in [CHANGELOG.md](CHANGELOG.md). Rule bundles have their own version and release flow ([docs/rule-pipeline.md](docs/rule-pipeline.md)).
+
 ## Documentation
 
 - [Architecture](docs/architecture.md): processes, IPC, data flow, source layout
@@ -72,3 +94,9 @@ Run `pokey-rulec` with no arguments to list the key, certificate, signing and ve
 - [Rule pipeline](docs/rule-pipeline.md): CI checks, signing, rule updates
 - [Development](docs/development.md): checks CI runs, to run before a pull request
 - [Deploying](docs/deploying.md): identity, entitlements, rule releases, current status
+- [Contributing](CONTRIBUTING.md): commit messages, pull requests, releases
+- [Security policy](SECURITY.md)
+
+## License
+
+Apache-2.0, see [LICENSE](LICENSE). The logo and fonts in [`branding/`](branding) have their own terms, see [branding/README.md](branding/README.md).
