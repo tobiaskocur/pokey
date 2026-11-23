@@ -420,10 +420,7 @@ impl P {
 
     fn binary(&mut self, min_prec: u8) -> Result<Expr, CompileError> {
         let mut lhs = self.unary()?;
-        loop {
-            let Tok::Sym(s) = self.peek().clone() else {
-                break;
-            };
+        while let Tok::Sym(s) = self.peek().clone() {
             let Some(prec) = prec(s) else { break };
             if prec < min_prec {
                 break;

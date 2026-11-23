@@ -75,6 +75,13 @@ fn ok(args: &[&str]) -> String {
 }
 
 #[test]
+fn version_matches_the_workspace_version() {
+    let want = format!("pokey-rulec {}\n", env!("CARGO_PKG_VERSION"));
+    assert_eq!(ok(&["--version"]), want);
+    assert_eq!(ok(&["version"]), want);
+}
+
+#[test]
 fn release_pipeline_end_to_end() {
     let t = Tmp::new("e2e");
     let rules = rules_dir().to_string_lossy().into_owned();

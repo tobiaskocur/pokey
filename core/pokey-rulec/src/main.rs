@@ -37,6 +37,8 @@ Signing and verification:
            signature (raw or hex) on stdout (HSM/KMS wrapper).
   verify   --bundle FILE --roots FILE --threshold N [--now UNIX]
            [--current-version N] [--self-test]
+
+  version  print the pokey-rulec version
 ";
 
 fn main() -> ExitCode {
@@ -56,6 +58,10 @@ fn main() -> ExitCode {
         "cert-show" => cert_show(rest),
         "sign" => sign(rest),
         "verify" => verify(rest),
+        "version" | "--version" | "-V" => {
+            println!("pokey-rulec {}", env!("CARGO_PKG_VERSION"));
+            Ok(())
+        }
         "help" | "--help" | "-h" => {
             print!("{USAGE}");
             Ok(())
