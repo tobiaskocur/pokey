@@ -97,13 +97,18 @@ pub struct Engine {
 }
 
 /// Compile YARA sources (name, text). Returns compiled rules and warnings.
-pub fn compile_yara(sources: &[(String, String)]) -> Result<(Option<yara_x::Rules>, Vec<String>), EngineError> {
+pub fn compile_yara(
+    sources: &[(String, String)],
+) -> Result<(Option<yara_x::Rules>, Vec<String>), EngineError> {
     if sources.is_empty() {
         return Ok((None, Vec::new()));
     }
     let mut c = yara_x::Compiler::new();
     for (name, src) in sources {
-        let ns: String = name.chars().map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '_' }).collect();
+        let ns: String = name
+            .chars()
+            .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '_' })
+            .collect();
         c.new_namespace(&ns);
         c.add_source(yara_x::SourceCode::from(src.as_str()).with_origin(name.as_str()))
             .map_err(|e| EngineError::Yara(e.to_string()))?;
@@ -113,31 +118,47 @@ pub fn compile_yara(sources: &[(String, String)]) -> Result<(Option<yara_x::Rule
 }
 
 impl Engine {
-    pub fn new(rules: Option<yara_x::Rules>, schemas: Vec<Program>, policy: Policy) -> Result<Engine, EngineError> {
+    pub fn new(
+        rules: Option<yara_x::Rules>,
+        schemas: Vec<Program>,
+        policy: Policy,
+    ) -> Result<Engine, EngineError> {
         policy.validate().map_err(EngineError::Policy)?;
         for (name, f) in &policy.formats {
             if let Some(s) = &f.schema {
                 if !schemas.iter().any(|p| &p.name == s) {
-                    return Err(EngineError::Policy(format!("format {name} references missing schema {s}")));
+                    return Err(EngineError::Policy(format!(
+                        "format {name} references missing schema {s}"
+                    )));
                 }
             }
         }
-        Ok(Engine { rules, schemas, policy })
+        Ok(Engine {
+            rules,
+            schemas,
+            policy,
+        })
     }
 
     /// Build the engine from a verified bundle.
     pub fn from_bundle(b: &VerifiedBundle<'_>) -> Result<Engine, EngineError> {
-        let policy_bytes = b.artifacts_of(ArtifactKind::Policy).next().map(|(_, d)| d).unwrap_or_default();
+        let policy_bytes = b
+            .artifacts_of(ArtifactKind::Policy)
+            .next()
+            .map(|(_, d)| d)
+            .unwrap_or_default();
         let policy = Policy::parse(policy_bytes).map_err(EngineError::Policy)?;
         let mut sources = Vec::new();
         for (e, d) in b.artifacts_of(ArtifactKind::Yara) {
-            let s = std::str::from_utf8(d).map_err(|_| EngineError::Yara(format!("{} is not utf-8", e.name)))?;
+            let s = std::str::from_utf8(d)
+                .map_err(|_| EngineError::Yara(format!("{} is not utf-8", e.name)))?;
             sources.push((e.name.clone(), s.to_string()));
         }
         let (rules, _) = compile_yara(&sources)?;
         let mut schemas = Vec::new();
         for (e, d) in b.artifacts_of(ArtifactKind::Schema) {
-            schemas.push(Program::from_bytes(d).map_err(|m| EngineError::Schema(e.name.clone(), m))?);
+            schemas
+                .push(Program::from_bytes(d).map_err(|m| EngineError::Schema(e.name.clone(), m))?);
         }
         Engine::new(rules, schemas, policy)
     }
@@ -147,12 +168,17 @@ impl Engine {
     pub fn detect_format(&self, data: &[u8], hint: Option<&str>) -> Option<String> {
         for (name, f) in &self.policy.formats {
             if let Some(s) = &f.schema {
-                if self.schemas.iter().any(|p| &p.name == s && schema::interp::detects(p, data)) {
+                if self
+                    .schemas
+                    .iter()
+                    .any(|p| &p.name == s && schema::interp::detects(p, data))
+                {
                     return Some(name.clone());
                 }
             }
         }
-        hint.filter(|h| self.policy.formats.contains_key(*h)).map(str::to_string)
+        hint.filter(|h| self.policy.formats.contains_key(*h))
+            .map(str::to_string)
     }
 
     pub fn scan(&self, data: &[u8], hint: Option<&str>) -> ScanReport {
@@ -175,7 +201,12 @@ impl Engine {
         };
         if let Some(f) = fpol {
             if data.len() as u64 > f.max_bytes {
-                set(&mut rep, Outcome::ResourceExceeded, format!("file exceeds max_bytes {}", f.max_bytes), 0);
+                set(
+                    &mut rep,
+                    Outcome::ResourceExceeded,
+                    format!("file exceeds max_bytes {}", f.max_bytes),
+                    0,
+                );
                 return rep;
             }
         }
@@ -193,23 +224,33 @@ impl Engine {
                         set(&mut rep, Outcome::StaticMatch, format!("rule {first}"), 0);
                     }
                 }
-                Err(yara_x::ScanError::Timeout) => set(&mut rep, Outcome::Timeout, "yara timeout".into(), 0),
+                Err(yara_x::ScanError::Timeout) => {
+                    set(&mut rep, Outcome::Timeout, "yara timeout".into(), 0)
+                }
                 Err(e) => set(&mut rep, Outcome::DecodeError, format!("yara: {e}"), 0),
             }
         }
         if let Some(sname) = fpol.and_then(|f| f.schema.as_ref()) {
             if let Some(prog) = self.schemas.iter().find(|p| &p.name == sname) {
-                let lim = Limits { fuel: self.policy.max_fuel, ..Limits::default() };
+                let lim = Limits {
+                    fuel: self.policy.max_fuel,
+                    ..Limits::default()
+                };
                 match schema::run(prog, data, lim) {
                     Ok(st) => rep.fuel_used = st.fuel_used,
                     Err((e, st)) => {
                         rep.fuel_used = st.fuel_used;
                         let (o, off) = match &e {
-                            ExecError::Violation { offset, .. } | ExecError::Arithmetic { offset } => {
+                            ExecError::Violation { offset, .. }
+                            | ExecError::Arithmetic { offset } => {
                                 (Outcome::SchemaViolation, *offset)
                             }
-                            ExecError::OutOfBounds { offset, .. } => (Outcome::SchemaViolation, *offset),
-                            ExecError::FuelExhausted | ExecError::LimitExceeded(_) => (Outcome::ResourceExceeded, 0),
+                            ExecError::OutOfBounds { offset, .. } => {
+                                (Outcome::SchemaViolation, *offset)
+                            }
+                            ExecError::FuelExhausted | ExecError::LimitExceeded(_) => {
+                                (Outcome::ResourceExceeded, 0)
+                            }
                             ExecError::InvalidProgram(_) => (Outcome::DecodeError, 0),
                         };
                         if o == Outcome::SchemaViolation {
@@ -227,14 +268,25 @@ impl Engine {
     /// inspector) before a bundle becomes current.
     pub fn self_test(&self, b: &VerifiedBundle<'_>) -> Result<usize, String> {
         for t in &b.manifest.self_tests {
-            let data = b.artifact(&t.fixture).ok_or_else(|| format!("missing fixture {}", t.fixture))?;
+            let data = b
+                .artifact(&t.fixture)
+                .ok_or_else(|| format!("missing fixture {}", t.fixture))?;
             let r = self.scan(data, t.format.as_deref());
             if r.outcome.name() != t.expect {
-                return Err(format!("{}: expected {}, got {} ({})", t.fixture, t.expect, r.outcome.name(), r.detail));
+                return Err(format!(
+                    "{}: expected {}, got {} ({})",
+                    t.fixture,
+                    t.expect,
+                    r.outcome.name(),
+                    r.detail
+                ));
             }
             if let Some(rule) = &t.rule {
                 if !r.hits.contains(rule) {
-                    return Err(format!("{}: expected hit {rule}, got {:?}", t.fixture, r.hits));
+                    return Err(format!(
+                        "{}: expected hit {rule}, got {:?}",
+                        t.fixture, r.hits
+                    ));
                 }
             }
         }

@@ -8,7 +8,9 @@ use std::process::{Command, ExitCode, Stdio};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use ed25519_dalek::{Signer, SigningKey};
-use edr_core::bundle::{self, Channel, ReleaseCert, TrustAnchors, VerifyMode, CHANNEL_CANARY, CHANNEL_STABLE};
+use edr_core::bundle::{
+    self, Channel, ReleaseCert, TrustAnchors, VerifyMode, CHANNEL_CANARY, CHANNEL_STABLE,
+};
 use edr_core::engine::Engine;
 use edr_rulec::{parse_key32, parse_roots, run_tests, walk, Args, Budget, Error, RuleSet};
 
@@ -70,7 +72,10 @@ fn main() -> ExitCode {
 }
 
 fn now() -> i64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0)
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
 }
 
 fn read(p: &str) -> Result<Vec<u8>, Error> {
@@ -89,7 +94,9 @@ fn write_atomic(path: &str, data: &[u8]) -> Result<(), Error> {
 }
 
 fn load_key(p: &str) -> Result<SigningKey, Error> {
-    Ok(SigningKey::from_bytes(&parse_key32(&read_text(p)?).map_err(|e| format!("{p}: {e}"))?))
+    Ok(SigningKey::from_bytes(
+        &parse_key32(&read_text(p)?).map_err(|e| format!("{p}: {e}"))?,
+    ))
 }
 
 fn anchors(a: &Args) -> Result<TrustAnchors, Error> {
@@ -131,8 +138,17 @@ fn test(argv: &[String]) -> Result<(), Error> {
     for f in &rep.failures {
         println!("FAIL {f}");
     }
-    let slow = rep.slowest.as_ref().map(|(n, d)| format!("{n} {d:?}")).unwrap_or_default();
-    println!("{} passed, {} failed; max fuel {}; slowest {slow}", rep.passed, rep.failures.len(), rep.max_fuel);
+    let slow = rep
+        .slowest
+        .as_ref()
+        .map(|(n, d)| format!("{n} {d:?}"))
+        .unwrap_or_default();
+    println!(
+        "{} passed, {} failed; max fuel {}; slowest {slow}",
+        rep.passed,
+        rep.failures.len(),
+        rep.max_fuel
+    );
     if rep.failures.is_empty() {
         Ok(())
     } else {
@@ -149,7 +165,9 @@ fn compile(argv: &[String]) -> Result<(), Error> {
         "canary" => Channel::Canary,
         c => return Err(format!("unknown channel {c}")),
     };
-    let days = a.num::<i64>("expires-days")?.ok_or("missing --expires-days")?;
+    let days = a
+        .num::<i64>("expires-days")?
+        .ok_or("missing --expires-days")?;
     if !(1..=365).contains(&days) {
         return Err("--expires-days must be 1..=365".into());
     }
@@ -157,7 +175,10 @@ fn compile(argv: &[String]) -> Result<(), Error> {
     let manifest = rs.manifest(version, channel, created, created + days * 86_400);
     let out = bundle::build_unsigned(manifest, &rs.artifacts()?).map_err(|e| e.to_string())?;
     write_atomic(a.req("out")?, &out)?;
-    println!("wrote unsigned bundle version {version} ({} bytes)", out.len());
+    println!(
+        "wrote unsigned bundle version {version} ({} bytes)",
+        out.len()
+    );
     Ok(())
 }
 
@@ -169,8 +190,12 @@ fn scan(argv: &[String]) -> Result<(), Error> {
         (rs.engine()?, rs.policy)
     } else {
         bundle_bytes = read(a.req("bundle")?)?;
-        let b = bundle::verify(&bundle_bytes, &anchors(&a)?, VerifyMode::Load { now: now() })
-            .map_err(|e| e.to_string())?;
+        let b = bundle::verify(
+            &bundle_bytes,
+            &anchors(&a)?,
+            VerifyMode::Load { now: now() },
+        )
+        .map_err(|e| e.to_string())?;
         let e = Engine::from_bundle(&b).map_err(|e| e.to_string())?;
         let p = e.policy.clone();
         (e, p)
@@ -189,7 +214,10 @@ fn scan(argv: &[String]) -> Result<(), Error> {
     }
     for p in files {
         let data = fs::read(&p).map_err(|e| format!("{}: {e}", p.display()))?;
-        let hint = p.extension().and_then(|e| e.to_str()).and_then(|e| policy_hint.format_for_extension(e));
+        let hint = p
+            .extension()
+            .and_then(|e| e.to_str())
+            .and_then(|e| policy_hint.format_for_extension(e));
         let r = engine.scan(&data, hint);
         println!(
             "{}\t{}\tformat={}\thits={}\tfuel={}\t{}",
@@ -213,7 +241,9 @@ fn keygen(argv: &[String]) -> Result<(), Error> {
     opts.write(true).create_new(true);
     #[cfg(unix)]
     std::os::unix::fs::OpenOptionsExt::mode(&mut opts, 0o600);
-    let mut f = opts.open(&key_path).map_err(|e| format!("{key_path}: {e}"))?;
+    let mut f = opts
+        .open(&key_path)
+        .map_err(|e| format!("{key_path}: {e}"))?;
     writeln!(f, "{}", hex::encode(key.to_bytes())).map_err(|e| e.to_string())?;
     let pub_hex = hex::encode(key.verifying_key().to_bytes());
     fs::write(format!("{prefix}.pub"), format!("{pub_hex}\n")).map_err(|e| e.to_string())?;
@@ -254,7 +284,10 @@ fn cert_sign(argv: &[String]) -> Result<(), Error> {
     }
     cert.add_root_signature(&root);
     write_atomic(path, &cert.encode())?;
-    println!("certificate now has {} root signature(s)", cert.root_sigs.len());
+    println!(
+        "certificate now has {} root signature(s)",
+        cert.root_sigs.len()
+    );
     Ok(())
 }
 
@@ -262,7 +295,10 @@ fn cert_show(argv: &[String]) -> Result<(), Error> {
     let a = Args::parse(argv, &[])?;
     let c = ReleaseCert::decode(&read(a.req("cert")?)?).map_err(|e| e.to_string())?;
     println!("release_key {}", hex::encode(c.release_key));
-    println!("not_before  {}\nnot_after   {}\nchannels    {:#04x}", c.not_before, c.not_after, c.channels);
+    println!(
+        "not_before  {}\nnot_after   {}\nchannels    {:#04x}",
+        c.not_before, c.not_after, c.channels
+    );
     for (id, _) in &c.root_sigs {
         println!("root_sig    {}", hex::encode(id));
     }
@@ -278,18 +314,27 @@ fn signer_cmd(cmd: &str, msg: &[u8]) -> Result<[u8; 64], String> {
         .stderr(Stdio::inherit())
         .spawn()
         .map_err(|e| format!("spawn signer: {e}"))?;
-    child.stdin.take().ok_or("no stdin")?.write_all(msg).map_err(|e| format!("signer stdin: {e}"))?;
-    let out = child.wait_with_output().map_err(|e| format!("signer: {e}"))?;
+    child
+        .stdin
+        .take()
+        .ok_or("no stdin")?
+        .write_all(msg)
+        .map_err(|e| format!("signer stdin: {e}"))?;
+    let out = child
+        .wait_with_output()
+        .map_err(|e| format!("signer: {e}"))?;
     if !out.status.success() {
         return Err(format!("signer exited with {}", out.status));
     }
     let raw = if out.stdout.len() == 64 {
         out.stdout
     } else {
-        let text = String::from_utf8(out.stdout).map_err(|_| "signer output is neither 64 raw bytes nor hex")?;
+        let text = String::from_utf8(out.stdout)
+            .map_err(|_| "signer output is neither 64 raw bytes nor hex")?;
         hex::decode(text.trim()).map_err(|_| "signer output is neither 64 raw bytes nor hex")?
     };
-    raw.try_into().map_err(|_| "signer output must be 64 bytes".to_string())
+    raw.try_into()
+        .map_err(|_| "signer output must be 64 bytes".to_string())
 }
 
 fn sign(argv: &[String]) -> Result<(), Error> {
@@ -314,7 +359,10 @@ fn verify(argv: &[String]) -> Result<(), Error> {
     let a = Args::parse(argv, &["self-test"])?;
     let bytes = read(a.req("bundle")?)?;
     let now = a.num::<i64>("now")?.unwrap_or_else(now);
-    let mode = VerifyMode::Activation { now, current_version: a.num::<u64>("current-version")? };
+    let mode = VerifyMode::Activation {
+        now,
+        current_version: a.num::<u64>("current-version")?,
+    };
     let b = bundle::verify(&bytes, &anchors(&a)?, mode).map_err(|e| e.to_string())?;
     println!(
         "ok: version {} channel {:?} expires {} artifacts {} self-tests {}",

@@ -8,7 +8,15 @@ fn key(n: u8) -> SigningKey {
 }
 
 fn anchors(threshold: usize) -> TrustAnchors {
-    TrustAnchors::new(vec![key(1).verifying_key(), key(2).verifying_key(), key(3).verifying_key()], threshold).unwrap()
+    TrustAnchors::new(
+        vec![
+            key(1).verifying_key(),
+            key(2).verifying_key(),
+            key(3).verifying_key(),
+        ],
+        threshold,
+    )
+    .unwrap()
 }
 
 fn cert_with(roots: &[u8], release: &SigningKey, nb: i64, na: i64, channels: u8) -> ReleaseCert {
@@ -20,7 +28,13 @@ fn cert_with(roots: &[u8], release: &SigningKey, nb: i64, na: i64, channels: u8)
 }
 
 fn cert() -> ReleaseCert {
-    cert_with(&[1, 2], &key(9), NOW - DAY, NOW + 90 * DAY, CHANNEL_STABLE | CHANNEL_CANARY)
+    cert_with(
+        &[1, 2],
+        &key(9),
+        NOW - DAY,
+        NOW + 90 * DAY,
+        CHANNEL_STABLE | CHANNEL_CANARY,
+    )
 }
 
 fn manifest(version: u64) -> Manifest {
@@ -32,15 +46,28 @@ fn manifest(version: u64) -> Manifest {
         expires: NOW + 30 * DAY,
         min_engine: 1,
         artifacts: Vec::new(),
-        self_tests: vec![SelfTest { fixture: "fixtures/a.bin".into(), format: None, expect: "CLEAN".into(), rule: None }],
+        self_tests: vec![SelfTest {
+            fixture: "fixtures/a.bin".into(),
+            format: None,
+            expect: "CLEAN".into(),
+            rule: None,
+        }],
     }
 }
 
 fn artifacts() -> Vec<(String, ArtifactKind, Vec<u8>)> {
     vec![
         ("policy.json".into(), ArtifactKind::Policy, b"{}".to_vec()),
-        ("yara/a.yar".into(), ArtifactKind::Yara, b"rule a { condition: false }".to_vec()),
-        ("fixtures/a.bin".into(), ArtifactKind::Fixture, vec![0u8; 100]),
+        (
+            "yara/a.yar".into(),
+            ArtifactKind::Yara,
+            b"rule a { condition: false }".to_vec(),
+        ),
+        (
+            "fixtures/a.bin".into(),
+            ArtifactKind::Fixture,
+            vec![0u8; 100],
+        ),
     ]
 }
 
@@ -58,7 +85,14 @@ fn signed(version: u64) -> Vec<u8> {
 }
 
 fn activate(b: &[u8], current: Option<u64>) -> Result<VerifiedBundle<'_>, BundleError> {
-    verify(b, &anchors(2), VerifyMode::Activation { now: NOW, current_version: current })
+    verify(
+        b,
+        &anchors(2),
+        VerifyMode::Activation {
+            now: NOW,
+            current_version: current,
+        },
+    )
 }
 
 /// Re-sign `header+manifest` after a test mutated them, so the signature is
@@ -67,7 +101,9 @@ fn resign(b: &mut [u8]) {
     let h = Header::decode(b, b.len()).unwrap();
     let m_end = HEADER_LEN + h.manifest_len as usize;
     let s_end = m_end + h.sig_len as usize;
-    let sig = key(9).sign(&signed_message(&b[..HEADER_LEN], &b[HEADER_LEN..m_end])).to_bytes();
+    let sig = key(9)
+        .sign(&signed_message(&b[..HEADER_LEN], &b[HEADER_LEN..m_end]))
+        .to_bytes();
     b[s_end - 64..s_end].copy_from_slice(&sig);
 }
 
@@ -76,7 +112,10 @@ fn round_trip_verifies() {
     let b = signed(5);
     let v = activate(&b, Some(4)).unwrap();
     assert_eq!(v.manifest.version, 5);
-    assert_eq!(v.artifact("yara/a.yar"), Some(&b"rule a { condition: false }"[..]));
+    assert_eq!(
+        v.artifact("yara/a.yar"),
+        Some(&b"rule a { condition: false }"[..])
+    );
     assert_eq!(v.artifacts_of(ArtifactKind::Fixture).count(), 1);
     assert!(!v.expired);
 }
@@ -109,14 +148,23 @@ fn artifact_tampering_is_a_hash_mismatch() {
     let mut b = signed(5);
     let n = b.len();
     b[n - 1] ^= 0xff; // last byte of the fixture
-    assert_eq!(activate(&b, None).unwrap_err(), BundleError::ArtifactHashMismatch("fixtures/a.bin".into()));
+    assert_eq!(
+        activate(&b, None).unwrap_err(),
+        BundleError::ArtifactHashMismatch("fixtures/a.bin".into())
+    );
 }
 
 #[test]
 fn version_must_increase_on_activation() {
     let b = signed(5);
-    assert_eq!(activate(&b, Some(5)).unwrap_err(), BundleError::VersionNotIncreasing { got: 5, current: 5 });
-    assert_eq!(activate(&b, Some(9)).unwrap_err(), BundleError::VersionNotIncreasing { got: 5, current: 9 });
+    assert_eq!(
+        activate(&b, Some(5)).unwrap_err(),
+        BundleError::VersionNotIncreasing { got: 5, current: 5 }
+    );
+    assert_eq!(
+        activate(&b, Some(9)).unwrap_err(),
+        BundleError::VersionNotIncreasing { got: 5, current: 9 }
+    );
     // Loading an already active bundle does not compare versions.
     assert!(verify(&b, &anchors(2), VerifyMode::Load { now: NOW }).is_ok());
 }
@@ -140,7 +188,10 @@ fn certificate_window_enforced_on_activation() {
 
     let future = cert_with(&[1, 2], &key(9), NOW + DAY, NOW + 100 * DAY, CHANNEL_STABLE);
     let b = signed_with(manifest(5), &future, key(9));
-    assert_eq!(activate(&b, None).unwrap_err(), BundleError::CertNotYetValid);
+    assert_eq!(
+        activate(&b, None).unwrap_err(),
+        BundleError::CertNotYetValid
+    );
 }
 
 #[test]
@@ -148,7 +199,10 @@ fn threshold_of_distinct_pinned_roots() {
     // One root is not enough for threshold 2.
     let one = cert_with(&[1], &key(9), NOW - DAY, NOW + DAY, CHANNEL_STABLE);
     let b = signed_with(manifest(5), &one, key(9));
-    assert_eq!(activate(&b, None).unwrap_err(), BundleError::InsufficientRootSignatures { got: 1, need: 2 });
+    assert_eq!(
+        activate(&b, None).unwrap_err(),
+        BundleError::InsufficientRootSignatures { got: 1, need: 2 }
+    );
 
     // The same root twice is rejected, not counted twice.
     let dup = cert_with(&[1, 1], &key(9), NOW - DAY, NOW + DAY, CHANNEL_STABLE);
@@ -158,13 +212,19 @@ fn threshold_of_distinct_pinned_roots() {
     // An unknown root does not count.
     let stranger = cert_with(&[1, 7], &key(9), NOW - DAY, NOW + DAY, CHANNEL_STABLE);
     let b = signed_with(manifest(5), &stranger, key(9));
-    assert_eq!(activate(&b, None).unwrap_err(), BundleError::InsufficientRootSignatures { got: 1, need: 2 });
+    assert_eq!(
+        activate(&b, None).unwrap_err(),
+        BundleError::InsufficientRootSignatures { got: 1, need: 2 }
+    );
 
     // A pinned root id with a wrong signature is a hard error.
     let mut forged = cert_with(&[1, 2], &key(9), NOW - DAY, NOW + DAY, CHANNEL_STABLE);
     forged.root_sigs[1].1[0] ^= 1;
     let b = signed_with(manifest(5), &forged, key(9));
-    assert_eq!(activate(&b, None).unwrap_err(), BundleError::BadCertSignature);
+    assert_eq!(
+        activate(&b, None).unwrap_err(),
+        BundleError::BadCertSignature
+    );
 }
 
 #[test]
@@ -172,20 +232,29 @@ fn certificate_fields_are_covered_by_root_signatures() {
     let mut c = cert();
     c.not_after += 1000 * DAY; // extend validity after roots signed
     let b = signed_with(manifest(5), &c, key(9));
-    assert_eq!(activate(&b, None).unwrap_err(), BundleError::BadCertSignature);
+    assert_eq!(
+        activate(&b, None).unwrap_err(),
+        BundleError::BadCertSignature
+    );
 }
 
 #[test]
 fn bundle_signed_by_other_key_is_rejected() {
     let u = build_unsigned(manifest(5), &artifacts()).unwrap();
     // sign() refuses a signature that does not match the certificate.
-    assert!(matches!(sign(&u, &cert(), &mut local_signer(key(8))), Err(BundleError::Signer(_))));
+    assert!(matches!(
+        sign(&u, &cert(), &mut local_signer(key(8))),
+        Err(BundleError::Signer(_))
+    ));
     // A certificate for key 8 that roots never signed.
     let rogue = cert_with(&[], &key(8), NOW - DAY, NOW + DAY, CHANNEL_STABLE);
     let mut rogue = rogue;
     rogue.root_sigs = cert().root_sigs; // copy root sigs from the real cert
     let b = sign(&u, &rogue, &mut local_signer(key(8))).unwrap();
-    assert_eq!(activate(&b, None).unwrap_err(), BundleError::BadCertSignature);
+    assert_eq!(
+        activate(&b, None).unwrap_err(),
+        BundleError::BadCertSignature
+    );
 }
 
 #[test]
@@ -194,7 +263,10 @@ fn channel_must_be_allowed_by_certificate() {
     let mut m = manifest(5);
     m.channel = Channel::Canary;
     let b = signed_with(m, &stable_only, key(9));
-    assert_eq!(activate(&b, None).unwrap_err(), BundleError::ChannelNotAllowed);
+    assert_eq!(
+        activate(&b, None).unwrap_err(),
+        BundleError::ChannelNotAllowed
+    );
 }
 
 #[test]
@@ -204,7 +276,10 @@ fn newer_engine_required_is_rejected() {
     let b = signed_with(m, &cert(), key(9));
     assert_eq!(
         activate(&b, None).unwrap_err(),
-        BundleError::IncompatibleEngine { need: ENGINE_VERSION + 1, have: ENGINE_VERSION }
+        BundleError::IncompatibleEngine {
+            need: ENGINE_VERSION + 1,
+            have: ENGINE_VERSION
+        }
     );
 }
 
@@ -212,17 +287,26 @@ fn newer_engine_required_is_rejected() {
 fn header_lengths_are_bounds_checked() {
     let b = signed(5);
     assert_eq!(split(&b[..10]).err(), Some(BundleError::Truncated));
-    assert_eq!(split(&b[..b.len() - 1]).err(), Some(BundleError::LengthMismatch));
+    assert_eq!(
+        split(&b[..b.len() - 1]).err(),
+        Some(BundleError::LengthMismatch)
+    );
     let mut extra = b.clone();
     extra.push(0);
     assert_eq!(split(&extra).err(), Some(BundleError::LengthMismatch));
 
     let mut c = b.clone();
     c[12..16].copy_from_slice(&u32::MAX.to_le_bytes());
-    assert_eq!(split(&c).err(), Some(BundleError::LengthOutOfBounds("manifest_len")));
+    assert_eq!(
+        split(&c).err(),
+        Some(BundleError::LengthOutOfBounds("manifest_len"))
+    );
     let mut c = b.clone();
     c[20..28].copy_from_slice(&u64::MAX.to_le_bytes());
-    assert_eq!(split(&c).err(), Some(BundleError::LengthOutOfBounds("artifacts_len")));
+    assert_eq!(
+        split(&c).err(),
+        Some(BundleError::LengthOutOfBounds("artifacts_len"))
+    );
     let mut c = b.clone();
     c[0] = b'X';
     assert_eq!(split(&c).err(), Some(BundleError::BadMagic));
@@ -234,7 +318,10 @@ fn header_lengths_are_bounds_checked() {
 #[test]
 fn unsigned_bundle_is_rejected() {
     let u = build_unsigned(manifest(5), &artifacts()).unwrap();
-    assert_eq!(activate(&u, None).unwrap_err(), BundleError::MalformedSignatureBlock);
+    assert_eq!(
+        activate(&u, None).unwrap_err(),
+        BundleError::MalformedSignatureBlock
+    );
 }
 
 #[test]
@@ -244,19 +331,31 @@ fn manifest_checks_after_valid_signature() {
     arts[1].0 = "../evil.yar".into();
     let u = build_unsigned(manifest(5), &arts).unwrap();
     let b = sign(&u, &cert(), &mut local_signer(key(9))).unwrap();
-    assert!(matches!(activate(&b, None).unwrap_err(), BundleError::ManifestInvalid(_)));
+    assert!(matches!(
+        activate(&b, None).unwrap_err(),
+        BundleError::ManifestInvalid(_)
+    ));
 
     // Self-test referencing a missing fixture.
     let mut m = manifest(5);
     m.self_tests[0].fixture = "fixtures/missing.bin".into();
     let b = signed_with(m, &cert(), key(9));
-    assert!(matches!(activate(&b, None).unwrap_err(), BundleError::ManifestInvalid(_)));
+    assert!(matches!(
+        activate(&b, None).unwrap_err(),
+        BundleError::ManifestInvalid(_)
+    ));
 
     // No policy artifact.
-    let arts: Vec<_> = artifacts().into_iter().filter(|a| a.1 != ArtifactKind::Policy).collect();
+    let arts: Vec<_> = artifacts()
+        .into_iter()
+        .filter(|a| a.1 != ArtifactKind::Policy)
+        .collect();
     let u = build_unsigned(manifest(5), &arts).unwrap();
     let b = sign(&u, &cert(), &mut local_signer(key(9))).unwrap();
-    assert!(matches!(activate(&b, None).unwrap_err(), BundleError::ManifestInvalid(_)));
+    assert!(matches!(
+        activate(&b, None).unwrap_err(),
+        BundleError::ManifestInvalid(_)
+    ));
 }
 
 #[test]
@@ -283,7 +382,10 @@ fn unknown_manifest_fields_are_rejected() {
     let patched = text.replacen("\"format\"", "\"formax\"", 1);
     b[m].copy_from_slice(patched.as_bytes());
     resign(&mut b);
-    assert!(matches!(activate(&b, None).unwrap_err(), BundleError::ManifestParse(_)));
+    assert!(matches!(
+        activate(&b, None).unwrap_err(),
+        BundleError::ManifestParse(_)
+    ));
 }
 
 #[test]
@@ -299,5 +401,8 @@ fn certificate_encoding_round_trips() {
     assert_eq!(ReleaseCert::decode(&c.encode()).unwrap(), c);
     let mut e = c.encode();
     e.pop();
-    assert_eq!(ReleaseCert::decode(&e).unwrap_err(), BundleError::MalformedSignatureBlock);
+    assert_eq!(
+        ReleaseCert::decode(&e).unwrap_err(),
+        BundleError::MalformedSignatureBlock
+    );
 }

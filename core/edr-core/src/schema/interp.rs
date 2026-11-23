@@ -20,7 +20,13 @@ pub struct Limits {
 
 impl Default for Limits {
     fn default() -> Self {
-        Limits { fuel: 10_000_000, max_call_depth: 32, max_frames: 64, max_stack: 256, max_once: 4096 }
+        Limits {
+            fuel: 10_000_000,
+            max_call_depth: 32,
+            max_frames: 64,
+            max_stack: 256,
+            max_once: 4096,
+        }
     }
 }
 
@@ -44,7 +50,12 @@ impl ExecError {
     /// Whether this error says something about the file (as opposed to the
     /// scan running out of resources or a broken program).
     pub fn is_file_defect(&self) -> bool {
-        matches!(self, ExecError::Violation { .. } | ExecError::OutOfBounds { .. } | ExecError::Arithmetic { .. })
+        matches!(
+            self,
+            ExecError::Violation { .. }
+                | ExecError::OutOfBounds { .. }
+                | ExecError::Arithmetic { .. }
+        )
     }
 }
 
@@ -86,7 +97,9 @@ type R<T> = Result<T, ExecError>;
 
 impl Vm<'_> {
     fn pop(&mut self) -> R<u64> {
-        self.stack.pop().ok_or(ExecError::InvalidProgram("stack underflow"))
+        self.stack
+            .pop()
+            .ok_or(ExecError::InvalidProgram("stack underflow"))
     }
 
     fn push(&mut self, v: u64) -> R<()> {
@@ -108,7 +121,9 @@ impl Vm<'_> {
 
     /// Absolute range `[off, off+len)` that must lie within `[lo, hi]`.
     fn range(off: u64, len: u64, lo: u64, hi: u64) -> R<(usize, usize)> {
-        let e = off.checked_add(len).ok_or(ExecError::OutOfBounds { offset: off, len })?;
+        let e = off
+            .checked_add(len)
+            .ok_or(ExecError::OutOfBounds { offset: off, len })?;
         if off < lo || e > hi {
             return Err(ExecError::OutOfBounds { offset: off, len });
         }
@@ -130,8 +145,16 @@ impl Vm<'_> {
     }
 
     fn violation(&self, msg: u32) -> ExecError {
-        let msg = self.p.messages.get(msg as usize).cloned().unwrap_or_default();
-        ExecError::Violation { msg, offset: self.pos }
+        let msg = self
+            .p
+            .messages
+            .get(msg as usize)
+            .cloned()
+            .unwrap_or_default();
+        ExecError::Violation {
+            msg,
+            offset: self.pos,
+        }
     }
 
     fn local_index(&self, i: u16) -> R<usize> {
@@ -146,10 +169,19 @@ impl Vm<'_> {
         if self.calls.len() >= self.lim.max_call_depth {
             return Err(ExecError::LimitExceeded("call depth"));
         }
-        let f = *self.p.funcs.get(func as usize).ok_or(ExecError::InvalidProgram("bad function"))?;
-        self.calls.push(CallFrame { ret_pc, locals_base: self.locals_base, frames_len: self.frames.len() });
+        let f = *self
+            .p
+            .funcs
+            .get(func as usize)
+            .ok_or(ExecError::InvalidProgram("bad function"))?;
+        self.calls.push(CallFrame {
+            ret_pc,
+            locals_base: self.locals_base,
+            frames_len: self.frames.len(),
+        });
         self.locals_base = self.locals.len();
-        self.locals.resize(self.locals.len() + f.nlocals as usize, 0);
+        self.locals
+            .resize(self.locals.len() + f.nlocals as usize, 0);
         Ok(f.entry as usize)
     }
 
@@ -157,7 +189,11 @@ impl Vm<'_> {
         let mut pc = self.enter(0, usize::MAX)?;
         loop {
             self.charge(1)?;
-            let op = *self.p.code.get(pc).ok_or(ExecError::InvalidProgram("pc out of range"))?;
+            let op = *self
+                .p
+                .code
+                .get(pc)
+                .ok_or(ExecError::InvalidProgram("pc out of range"))?;
             pc += 1;
             match op {
                 Op::Push(v) => self.push(v)?,
@@ -186,8 +222,14 @@ impl Vm<'_> {
                         BinOp::Mul => l.checked_mul(r).ok_or_else(|| self.arith())?,
                         BinOp::Div => l.checked_div(r).ok_or_else(|| self.arith())?,
                         BinOp::Mod => l.checked_rem(r).ok_or_else(|| self.arith())?,
-                        BinOp::Shl => u32::try_from(r).ok().and_then(|r| l.checked_shl(r)).ok_or_else(|| self.arith())?,
-                        BinOp::Shr => u32::try_from(r).ok().and_then(|r| l.checked_shr(r)).ok_or_else(|| self.arith())?,
+                        BinOp::Shl => u32::try_from(r)
+                            .ok()
+                            .and_then(|r| l.checked_shl(r))
+                            .ok_or_else(|| self.arith())?,
+                        BinOp::Shr => u32::try_from(r)
+                            .ok()
+                            .and_then(|r| l.checked_shr(r))
+                            .ok_or_else(|| self.arith())?,
                         BinOp::And => l & r,
                         BinOp::Or => l | r,
                         BinOp::Xor => l ^ r,
@@ -218,7 +260,11 @@ impl Vm<'_> {
                     self.push(v)?;
                 }
                 Op::Expect { konst, msg } => {
-                    let k = self.p.consts.get(konst as usize).ok_or(ExecError::InvalidProgram("bad const"))?;
+                    let k = self
+                        .p
+                        .consts
+                        .get(konst as usize)
+                        .ok_or(ExecError::InvalidProgram("bad const"))?;
                     self.charge(k.len() as u64 / 16)?;
                     let (s, e) = Self::range(self.pos, k.len() as u64, self.base, self.end)?;
                     if self.data[s..e] != k[..] {
@@ -264,17 +310,25 @@ impl Vm<'_> {
                     let v = self.pop()?;
                     if op == Op::RegionEnter {
                         let (_, e) = Self::range(self.pos, v, self.base, self.end)?;
-                        self.frames.push(Frame::Region { saved_base: self.base, saved_end: self.end });
+                        self.frames.push(Frame::Region {
+                            saved_base: self.base,
+                            saved_end: self.end,
+                        });
                         self.base = self.pos;
                         self.end = e as u64;
                     } else {
                         Self::range(v, 0, self.base, self.end)?;
-                        self.frames.push(Frame::At { saved_pos: self.pos });
+                        self.frames.push(Frame::At {
+                            saved_pos: self.pos,
+                        });
                         self.pos = v;
                     }
                 }
                 Op::RegionExit => match self.frames.pop() {
-                    Some(Frame::Region { saved_base, saved_end }) => {
+                    Some(Frame::Region {
+                        saved_base,
+                        saved_end,
+                    }) => {
                         self.pos = self.end;
                         self.base = saved_base;
                         self.end = saved_end;
@@ -288,7 +342,10 @@ impl Vm<'_> {
                 Op::SetEndian(l) => self.little = l,
                 Op::Call(f) => pc = self.enter(f, pc)?,
                 Op::Ret => {
-                    let c = self.calls.pop().ok_or(ExecError::InvalidProgram("return without call"))?;
+                    let c = self
+                        .calls
+                        .pop()
+                        .ok_or(ExecError::InvalidProgram("return without call"))?;
                     if self.frames.len() != c.frames_len {
                         return Err(ExecError::InvalidProgram("unbalanced frames at return"));
                     }
@@ -330,7 +387,9 @@ pub fn run(prog: &Program, data: &[u8], lim: Limits) -> Result<ExecStats, (ExecE
         once: HashSet::new(),
     };
     let r = vm.exec();
-    let stats = ExecStats { fuel_used: lim.fuel - vm.fuel };
+    let stats = ExecStats {
+        fuel_used: lim.fuel - vm.fuel,
+    };
     match r {
         Ok(()) => Ok(stats),
         Err(e) => Err((e, stats)),

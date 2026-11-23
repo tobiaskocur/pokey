@@ -27,14 +27,26 @@ pub enum Op {
     Bin(BinOp),
     Not,
     /// Read an integer at the cursor and advance. `endian`: None = current.
-    Read { width: u8, endian: Option<bool> },
+    Read {
+        width: u8,
+        endian: Option<bool>,
+    },
     /// Pop offset, push integer at that absolute file offset (current endian).
-    Peek { width: u8 },
-    Expect { konst: u32, msg: u32 },
+    Peek {
+        width: u8,
+    },
+    Expect {
+        konst: u32,
+        msg: u32,
+    },
     Skip,
     Seek,
-    Require { msg: u32 },
-    Once { msg: u32 },
+    Require {
+        msg: u32,
+    },
+    Once {
+        msg: u32,
+    },
     Jmp(u32),
     Jz(u32),
     RegionEnter,
@@ -88,7 +100,11 @@ impl Program {
     /// Code range of function `i`.
     pub fn func_range(&self, i: usize) -> Option<(usize, usize)> {
         let start = self.funcs.get(i)?.entry as usize;
-        let end = self.funcs.get(i + 1).map(|f| f.entry as usize).unwrap_or(self.code.len());
+        let end = self
+            .funcs
+            .get(i + 1)
+            .map(|f| f.entry as usize)
+            .unwrap_or(self.code.len());
         Some((start, end))
     }
 
@@ -105,7 +121,12 @@ impl Program {
         if self.funcs[0].entry != 0 {
             return Err("main must start at 0".into());
         }
-        if self.detect.is_empty() || self.detect.iter().any(|(o, m)| m.is_empty() || m.len() > 64 || *o > 4096) {
+        if self.detect.is_empty()
+            || self
+                .detect
+                .iter()
+                .any(|(o, m)| m.is_empty() || m.len() > 64 || *o > 4096)
+        {
             return Err("bad detect entries".into());
         }
         for i in 0..self.funcs.len() {

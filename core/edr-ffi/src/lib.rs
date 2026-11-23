@@ -45,7 +45,12 @@ pub struct EdrBundle {
 impl EdrBundle {
     /// Re-verify the owned bytes (load mode) to borrow a `VerifiedBundle`.
     fn verified(&self) -> Result<bundle::VerifiedBundle<'_>, String> {
-        bundle::verify(&self.bytes, &self.anchors, VerifyMode::Load { now: self.now }).map_err(|e| e.to_string())
+        bundle::verify(
+            &self.bytes,
+            &self.anchors,
+            VerifyMode::Load { now: self.now },
+        )
+        .map_err(|e| e.to_string())
     }
 }
 
@@ -131,7 +136,12 @@ fn cstring(s: &str) -> CString {
 }
 
 fn format_policy(f: &FormatPolicy) -> EdrFormatPolicy {
-    EdrFormatPolicy { decode: f.decode, max_bytes: f.max_bytes, max_pixels: f.max_pixels, deadline_ms: f.deadline_ms }
+    EdrFormatPolicy {
+        decode: f.decode,
+        max_bytes: f.max_bytes,
+        max_pixels: f.max_pixels,
+        deadline_ms: f.deadline_ms,
+    }
 }
 
 /// Verify `bytes` against `n_roots` pinned 32-byte Ed25519 root keys
@@ -164,10 +174,15 @@ pub unsafe extern "C" fn edr_bundle_open(
         if len > MAX_BUNDLE_LEN {
             return fail(EDR_ERR_BUNDLE, "bundle too large");
         }
-        let (Some(data), Some(root_bytes)) = (slice(bytes, len), slice(roots, n_roots.saturating_mul(32))) else {
+        let (Some(data), Some(root_bytes)) =
+            (slice(bytes, len), slice(roots, n_roots.saturating_mul(32)))
+        else {
             return fail(EDR_ERR_ARGUMENT, "null pointer");
         };
-        let raw: Vec<[u8; 32]> = root_bytes.chunks_exact(32).map(|c| c.try_into().unwrap_or([0; 32])).collect();
+        let raw: Vec<[u8; 32]> = root_bytes
+            .chunks_exact(32)
+            .map(|c| c.try_into().unwrap_or([0; 32]))
+            .collect();
         let anchors = match TrustAnchors::from_raw(&raw, threshold) {
             Ok(a) => a,
             Err(m) => return fail(EDR_ERR_ARGUMENT, m),
@@ -175,7 +190,11 @@ pub unsafe extern "C" fn edr_bundle_open(
         let vmode = match mode {
             EDR_MODE_ACTIVATION => VerifyMode::Activation {
                 now,
-                current_version: if current_version.is_null() { None } else { Some(*current_version) },
+                current_version: if current_version.is_null() {
+                    None
+                } else {
+                    Some(*current_version)
+                },
             },
             EDR_MODE_LOAD => VerifyMode::Load { now },
             _ => return fail(EDR_ERR_ARGUMENT, "unknown mode"),
@@ -192,7 +211,14 @@ pub unsafe extern "C" fn edr_bundle_open(
             }
             Err(e) => return fail(EDR_ERR_BUNDLE, &e.to_string()),
         };
-        *out = Box::into_raw(Box::new(EdrBundle { bytes: data.to_vec(), anchors, now, manifest, expired, policy }));
+        *out = Box::into_raw(Box::new(EdrBundle {
+            bytes: data.to_vec(),
+            anchors,
+            now,
+            manifest,
+            expired,
+            policy,
+        }));
         EDR_OK
     })
 }
@@ -207,7 +233,9 @@ pub unsafe extern "C" fn edr_bundle_free(b: *mut EdrBundle) {
 #[no_mangle]
 pub unsafe extern "C" fn edr_bundle_info(b: *const EdrBundle, out: *mut EdrBundleInfo) -> i32 {
     guard(|| {
-        let (Some(b), false) = (b.as_ref(), out.is_null()) else { return EDR_ERR_ARGUMENT };
+        let (Some(b), false) = (b.as_ref(), out.is_null()) else {
+            return EDR_ERR_ARGUMENT;
+        };
         let m = &b.manifest;
         *out = EdrBundleInfo {
             version: m.version,
@@ -236,7 +264,9 @@ pub unsafe extern "C" fn edr_bundle_format_for_extension(
     name_cap: usize,
 ) -> i32 {
     guard(|| {
-        let (Some(b), Ok(Some(ext))) = (b.as_ref(), opt_str(ext)) else { return EDR_ERR_ARGUMENT };
+        let (Some(b), Ok(Some(ext))) = (b.as_ref(), opt_str(ext)) else {
+            return EDR_ERR_ARGUMENT;
+        };
         match b.policy.format_for_extension(ext) {
             Some(n) if n.len() < name_cap && !name.is_null() => {
                 write_err(name, name_cap, n);
@@ -271,11 +301,21 @@ pub unsafe extern "C" fn edr_bundle_format_policy(
 
 /// Severity and action the bundle policy assigns to `outcome` (`EDR_OUTCOME_*`).
 #[no_mangle]
-pub unsafe extern "C" fn edr_bundle_action(b: *const EdrBundle, outcome: u32, out: *mut EdrAction) -> i32 {
+pub unsafe extern "C" fn edr_bundle_action(
+    b: *const EdrBundle,
+    outcome: u32,
+    out: *mut EdrAction,
+) -> i32 {
     guard(|| {
-        let (Some(b), false) = (b.as_ref(), out.is_null()) else { return EDR_ERR_ARGUMENT };
-        let Some(o) = Outcome::ALL.into_iter().find(|o| *o as u32 == outcome) else { return EDR_ERR_ARGUMENT };
-        let Some(a) = b.policy.outcomes.get(o.name()) else { return EDR_ERR_NOT_FOUND };
+        let (Some(b), false) = (b.as_ref(), out.is_null()) else {
+            return EDR_ERR_ARGUMENT;
+        };
+        let Some(o) = Outcome::ALL.into_iter().find(|o| *o as u32 == outcome) else {
+            return EDR_ERR_ARGUMENT;
+        };
+        let Some(a) = b.policy.outcomes.get(o.name()) else {
+            return EDR_ERR_NOT_FOUND;
+        };
         *out = EdrAction {
             severity: match a.severity {
                 Severity::None => 0,
@@ -305,9 +345,13 @@ pub unsafe extern "C" fn edr_engine_new(
     err_cap: usize,
 ) -> i32 {
     guard(|| {
-        let (Some(b), false) = (b.as_ref(), out.is_null()) else { return EDR_ERR_ARGUMENT };
+        let (Some(b), false) = (b.as_ref(), out.is_null()) else {
+            return EDR_ERR_ARGUMENT;
+        };
         *out = ptr::null_mut();
-        let engine = b.verified().and_then(|v| Engine::from_bundle(&v).map_err(|e| e.to_string()));
+        let engine = b
+            .verified()
+            .and_then(|v| Engine::from_bundle(&v).map_err(|e| e.to_string()));
         match engine {
             Ok(engine) => {
                 *out = Box::into_raw(Box::new(EdrEngine { engine }));
@@ -338,7 +382,9 @@ pub unsafe extern "C" fn edr_engine_self_test(
     err_cap: usize,
 ) -> i32 {
     guard(|| {
-        let (Some(e), Some(b)) = (e.as_ref(), b.as_ref()) else { return EDR_ERR_ARGUMENT };
+        let (Some(e), Some(b)) = (e.as_ref(), b.as_ref()) else {
+            return EDR_ERR_ARGUMENT;
+        };
         match b.verified().and_then(|v| e.engine.self_test(&v)) {
             Ok(n) => {
                 if !passed.is_null() {
@@ -406,7 +452,9 @@ pub unsafe extern "C" fn edr_report_fuel_used(r: *const EdrReport) -> u64 {
 /// Detected format name, or NULL. Valid until `edr_report_free`.
 #[no_mangle]
 pub unsafe extern "C" fn edr_report_format(r: *const EdrReport) -> *const c_char {
-    r.as_ref().and_then(|r| r.format.as_ref()).map_or(ptr::null(), |s| s.as_ptr())
+    r.as_ref()
+        .and_then(|r| r.format.as_ref())
+        .map_or(ptr::null(), |s| s.as_ptr())
 }
 
 /// Human-readable detail (never NULL for a valid report).
@@ -423,7 +471,9 @@ pub unsafe extern "C" fn edr_report_hit_count(r: *const EdrReport) -> usize {
 /// Rule or schema name `i`, or NULL when out of range.
 #[no_mangle]
 pub unsafe extern "C" fn edr_report_hit(r: *const EdrReport, i: usize) -> *const c_char {
-    r.as_ref().and_then(|r| r.hits.get(i)).map_or(ptr::null(), |s| s.as_ptr())
+    r.as_ref()
+        .and_then(|r| r.hits.get(i))
+        .map_or(ptr::null(), |s| s.as_ptr())
 }
 
 /// Engine version compared against the bundle's `min_engine`.

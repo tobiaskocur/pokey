@@ -92,7 +92,11 @@ impl Policy {
                 return Err(format!("policy: {name}: deadline_ms out of range"));
             }
             for e in &f.extensions {
-                if e.is_empty() || !e.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit()) {
+                if e.is_empty()
+                    || !e
+                        .bytes()
+                        .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+                {
                     return Err(format!("policy: {name}: bad extension {e:?}"));
                 }
                 if !seen_ext.insert(e.as_str()) {
@@ -105,7 +109,11 @@ impl Policy {
                 return Err(format!("policy: no action for outcome {}", o.name()));
             }
         }
-        if self.outcomes.keys().any(|k| Outcome::from_name(k).is_none()) {
+        if self
+            .outcomes
+            .keys()
+            .any(|k| Outcome::from_name(k).is_none())
+        {
             return Err("policy: unknown outcome name".into());
         }
         Ok(())
@@ -118,6 +126,9 @@ impl Policy {
 
     pub fn format_for_extension(&self, ext: &str) -> Option<&str> {
         let ext = ext.to_ascii_lowercase();
-        self.formats.iter().find(|(_, f)| f.extensions.contains(&ext)).map(|(n, _)| n.as_str())
+        self.formats
+            .iter()
+            .find(|(_, f)| f.extensions.contains(&ext))
+            .map(|(n, _)| n.as_str())
     }
 }

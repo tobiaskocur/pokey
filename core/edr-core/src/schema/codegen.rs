@@ -28,7 +28,10 @@ struct Gen<'a> {
 }
 
 fn err<T>(line: usize, msg: impl Into<String>) -> Result<T, CompileError> {
-    Err(CompileError { line, msg: msg.into() })
+    Err(CompileError {
+        line,
+        msg: msg.into(),
+    })
 }
 
 fn collect_assigned(b: &Block, out: &mut BTreeSet<String>) {
@@ -73,7 +76,10 @@ impl Gen<'_> {
     }
 
     fn local(&self, line: usize, n: &str) -> Result<u16, CompileError> {
-        self.locals.get(n).copied().ok_or(CompileError { line, msg: format!("unknown variable {n}") })
+        self.locals.get(n).copied().ok_or(CompileError {
+            line,
+            msg: format!("unknown variable {n}"),
+        })
     }
 
     fn expr(&mut self, line: usize, e: &Expr) -> Result<(), CompileError> {
@@ -208,10 +214,16 @@ impl Gen<'_> {
                 let top = self.code.len();
                 self.expr(line, c)?;
                 let j_end = self.emit(Op::Jz(0));
-                self.loops.push(Loop { frame_depth: self.frames.len(), breaks: Vec::new() });
+                self.loops.push(Loop {
+                    frame_depth: self.frames.len(),
+                    breaks: Vec::new(),
+                });
                 self.block(body)?;
                 self.emit(Op::Jmp(top as u32));
-                let l = self.loops.pop().unwrap_or(Loop { frame_depth: 0, breaks: Vec::new() });
+                let l = self.loops.pop().unwrap_or(Loop {
+                    frame_depth: 0,
+                    breaks: Vec::new(),
+                });
                 let end = self.code.len();
                 self.patch(j_end, end);
                 for b in l.breaks {
@@ -254,11 +266,20 @@ impl Gen<'_> {
             Stmt::Region(e, body) | Stmt::At(e, body) => {
                 let is_region = matches!(s, Stmt::Region(..));
                 self.expr(line, e)?;
-                self.emit(if is_region { Op::RegionEnter } else { Op::AtEnter });
-                self.frames.push(if is_region { Frame::Region } else { Frame::At });
+                self.emit(if is_region {
+                    Op::RegionEnter
+                } else {
+                    Op::AtEnter
+                });
+                self.frames
+                    .push(if is_region { Frame::Region } else { Frame::At });
                 self.block(body)?;
                 self.frames.pop();
-                self.emit(if is_region { Op::RegionExit } else { Op::AtExit });
+                self.emit(if is_region {
+                    Op::RegionExit
+                } else {
+                    Op::AtExit
+                });
             }
         }
         Ok(())
@@ -266,8 +287,12 @@ impl Gen<'_> {
 }
 
 pub fn generate(ast: &SchemaAst) -> Result<Program, CompileError> {
-    let func_ids: HashMap<String, u16> =
-        ast.defs.iter().enumerate().map(|(i, d)| (d.name.clone(), i as u16)).collect();
+    let func_ids: HashMap<String, u16> = ast
+        .defs
+        .iter()
+        .enumerate()
+        .map(|(i, d)| (d.name.clone(), i as u16))
+        .collect();
     let mut g = Gen {
         code: Vec::new(),
         consts: Vec::new(),
@@ -284,8 +309,15 @@ pub fn generate(ast: &SchemaAst) -> Result<Program, CompileError> {
         if names.len() > MAX_LOCALS as usize {
             return err(d.line, format!("too many locals in {}", d.name));
         }
-        g.locals = names.into_iter().enumerate().map(|(i, n)| (n, i as u16)).collect();
-        funcs.push(Func { entry: g.code.len() as u32, nlocals: g.locals.len() as u16 });
+        g.locals = names
+            .into_iter()
+            .enumerate()
+            .map(|(i, n)| (n, i as u16))
+            .collect();
+        funcs.push(Func {
+            entry: g.code.len() as u32,
+            nlocals: g.locals.len() as u16,
+        });
         g.block(&d.body)?;
         g.emit(Op::Ret);
     }

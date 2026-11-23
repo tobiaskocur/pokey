@@ -71,7 +71,10 @@ fn sorted_files(dir: &Path, ext: &str) -> Result<Vec<PathBuf>, Error> {
 }
 
 fn file_name(p: &Path) -> String {
-    p.file_name().and_then(|n| n.to_str()).unwrap_or_default().to_string()
+    p.file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or_default()
+        .to_string()
 }
 
 impl RuleSet {
@@ -82,36 +85,56 @@ impl RuleSet {
         let policy = Policy::parse(&policy_json)?;
         let mut yara = Vec::new();
         for p in sorted_files(&root.join("yara"), "yar")? {
-            let src = String::from_utf8(read(&p)?).map_err(|_| format!("{}: not utf-8", p.display()))?;
+            let src =
+                String::from_utf8(read(&p)?).map_err(|_| format!("{}: not utf-8", p.display()))?;
             yara.push((format!("yara/{}", file_name(&p)), src));
         }
         let (_, warnings) = compile_yara(&yara).map_err(|e| e.to_string())?;
         let mut schemas: Vec<(String, Program)> = Vec::new();
         for p in sorted_files(&root.join("schemas"), "schema")? {
-            let src = String::from_utf8(read(&p)?).map_err(|_| format!("{}: not utf-8", p.display()))?;
+            let src =
+                String::from_utf8(read(&p)?).map_err(|_| format!("{}: not utf-8", p.display()))?;
             let prog = schema::compile(&src).map_err(|e| format!("{}: {e}", p.display()))?;
             if schemas.iter().any(|(_, q)| q.name == prog.name) {
-                return Err(format!("{}: duplicate schema name {}", p.display(), prog.name));
+                return Err(format!(
+                    "{}: duplicate schema name {}",
+                    p.display(),
+                    prog.name
+                ));
             }
             schemas.push((format!("schemas/{}.ir", prog.name), prog));
         }
         let tests_path = root.join("tests.json");
         let tests = if tests_path.exists() {
-            let t: TestFile =
-                serde_json::from_slice(&read(&tests_path)?).map_err(|e| format!("tests.json: {e}"))?;
+            let t: TestFile = serde_json::from_slice(&read(&tests_path)?)
+                .map_err(|e| format!("tests.json: {e}"))?;
             t.fixtures
         } else {
             Vec::new()
         };
         for t in &tests {
             if Outcome::from_name(&t.expect).is_none() {
-                return Err(format!("tests.json: {}: unknown outcome {}", t.fixture, t.expect));
+                return Err(format!(
+                    "tests.json: {}: unknown outcome {}",
+                    t.fixture, t.expect
+                ));
             }
             if t.fixture.contains('/') || t.fixture.starts_with('.') {
-                return Err(format!("tests.json: fixture {} must be a plain file name", t.fixture));
+                return Err(format!(
+                    "tests.json: fixture {} must be a plain file name",
+                    t.fixture
+                ));
             }
         }
-        let rs = RuleSet { root: root.to_path_buf(), policy_json, policy, yara, schemas, tests, warnings };
+        let rs = RuleSet {
+            root: root.to_path_buf(),
+            policy_json,
+            policy,
+            yara,
+            schemas,
+            tests,
+            warnings,
+        };
         rs.engine()?; // cross-checks policy -> schema references
         Ok(rs)
     }
@@ -129,7 +152,11 @@ impl RuleSet {
     /// Artifacts in bundle order: policy, YARA sources, schema IR, self-test
     /// fixtures.
     pub fn artifacts(&self) -> Result<Vec<(String, ArtifactKind, Vec<u8>)>, Error> {
-        let mut out = vec![("policy.json".to_string(), ArtifactKind::Policy, self.policy_json.clone())];
+        let mut out = vec![(
+            "policy.json".to_string(),
+            ArtifactKind::Policy,
+            self.policy_json.clone(),
+        )];
         for (name, src) in &self.yara {
             out.push((name.clone(), ArtifactKind::Yara, src.as_bytes().to_vec()));
         }
@@ -137,7 +164,11 @@ impl RuleSet {
             out.push((name.clone(), ArtifactKind::Schema, prog.to_bytes()));
         }
         for t in self.tests.iter().filter(|t| t.self_test) {
-            out.push((format!("fixtures/{}", t.fixture), ArtifactKind::Fixture, read(&self.fixture_path(&t.fixture))?));
+            out.push((
+                format!("fixtures/{}", t.fixture),
+                ArtifactKind::Fixture,
+                read(&self.fixture_path(&t.fixture))?,
+            ));
         }
         Ok(out)
     }
@@ -176,7 +207,10 @@ pub struct Budget {
 
 impl Default for Budget {
     fn default() -> Self {
-        Budget { max_scan: Duration::from_millis(250), max_fuel_pct: 10 }
+        Budget {
+            max_scan: Duration::from_millis(250),
+            max_fuel_pct: 10,
+        }
     }
 }
 
@@ -195,10 +229,16 @@ impl TestReport {
             self.slowest = Some((name.to_string(), d));
         }
         if d > budget.max_scan {
-            self.failures.push(format!("{name}: scan took {d:?}, budget {:?}", budget.max_scan));
+            self.failures.push(format!(
+                "{name}: scan took {d:?}, budget {:?}",
+                budget.max_scan
+            ));
         }
         if fuel.saturating_mul(100) > policy_fuel.saturating_mul(budget.max_fuel_pct) {
-            self.failures.push(format!("{name}: used {fuel} fuel, over {}% of policy max_fuel", budget.max_fuel_pct));
+            self.failures.push(format!(
+                "{name}: used {fuel} fuel, over {}% of policy max_fuel",
+                budget.max_fuel_pct
+            ));
         }
     }
 }
@@ -225,7 +265,10 @@ pub fn run_tests(rs: &RuleSet, benign: Option<&Path>, budget: Budget) -> Result<
                 "{}: expected {}{}, got {} hits={:?} ({})",
                 t.fixture,
                 t.expect,
-                t.rule.as_ref().map(|r| format!(" [{r}]")).unwrap_or_default(),
+                t.rule
+                    .as_ref()
+                    .map(|r| format!(" [{r}]"))
+                    .unwrap_or_default(),
                 r.outcome.name(),
                 r.hits,
                 r.detail
@@ -235,7 +278,10 @@ pub fn run_tests(rs: &RuleSet, benign: Option<&Path>, budget: Budget) -> Result<
     if let Some(dir) = benign {
         for p in walk(dir)? {
             let data = read(&p)?;
-            let hint = p.extension().and_then(|e| e.to_str()).and_then(|e| rs.policy.format_for_extension(e));
+            let hint = p
+                .extension()
+                .and_then(|e| e.to_str())
+                .and_then(|e| rs.policy.format_for_extension(e));
             let start = Instant::now();
             let r = engine.scan(&data, hint);
             let d = start.elapsed();
@@ -244,7 +290,12 @@ pub fn run_tests(rs: &RuleSet, benign: Option<&Path>, budget: Budget) -> Result<
             if r.outcome == Outcome::Clean {
                 rep.passed += 1;
             } else {
-                rep.failures.push(format!("benign {name}: {} hits={:?} ({})", r.outcome.name(), r.hits, r.detail));
+                rep.failures.push(format!(
+                    "benign {name}: {} hits={:?} ({})",
+                    r.outcome.name(),
+                    r.hits,
+                    r.detail
+                ));
             }
         }
     }
@@ -330,7 +381,9 @@ impl Args {
     }
 
     pub fn num<T: std::str::FromStr>(&self, k: &str) -> Result<Option<T>, Error> {
-        self.get(k).map(|v| v.parse::<T>().map_err(|_| format!("--{k}: bad number {v}"))).transpose()
+        self.get(k)
+            .map(|v| v.parse::<T>().map_err(|_| format!("--{k}: bad number {v}")))
+            .transpose()
     }
 
     pub fn has(&self, k: &str) -> bool {

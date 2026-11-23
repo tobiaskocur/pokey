@@ -92,15 +92,18 @@ enum Tok {
 }
 
 const SYMS: &[&str] = &[
-    "||", "&&", "==", "!=", "<=", ">=", "<<", ">>", "{", "}", "(", ")", ",", ";", "=", "<", ">", "+", "-", "*", "/",
-    "%", "&", "|", "^", "!",
+    "||", "&&", "==", "!=", "<=", ">=", "<<", ">>", "{", "}", "(", ")", ",", ";", "=", "<", ">",
+    "+", "-", "*", "/", "%", "&", "|", "^", "!",
 ];
 
 pub const MAX_SOURCE_LEN: usize = 256 * 1024;
 const MAX_NESTING: usize = 64;
 
 fn err<T>(line: usize, msg: impl Into<String>) -> Result<T, CompileError> {
-    Err(CompileError { line, msg: msg.into() })
+    Err(CompileError {
+        line,
+        msg: msg.into(),
+    })
 }
 
 fn lex(src: &str) -> Result<Vec<(usize, Tok)>, CompileError> {
@@ -166,7 +169,10 @@ fn lex(src: &str) -> Result<Vec<(usize, Tok)>, CompileError> {
                         if sb.len() != 4 {
                             return err(line, "fourcc literal must be 4 bytes");
                         }
-                        out.push((line, Tok::Num(u32::from_be_bytes([sb[0], sb[1], sb[2], sb[3]]) as u64)));
+                        out.push((
+                            line,
+                            Tok::Num(u32::from_be_bytes([sb[0], sb[1], sb[2], sb[3]]) as u64),
+                        ));
                     }
                 } else {
                     out.push((line, Tok::Ident(id.to_string())));
@@ -199,7 +205,10 @@ fn lex_str(b: &[u8], start: usize, line: usize) -> Result<(String, usize), Compi
     if i >= b.len() {
         return err(line, "unterminated string");
     }
-    let s = std::str::from_utf8(&b[start + 1..i]).map_err(|_| CompileError { line, msg: "invalid utf-8".into() })?;
+    let s = std::str::from_utf8(&b[start + 1..i]).map_err(|_| CompileError {
+        line,
+        msg: "invalid utf-8".into(),
+    })?;
     Ok((s.to_string(), i + 1))
 }
 
@@ -210,8 +219,9 @@ struct P {
 }
 
 const KEYWORDS: &[&str] = &[
-    "schema", "detect", "endian", "def", "main", "expect", "field", "let", "require", "fail", "skip", "seek", "while",
-    "if", "else", "break", "region", "at", "call", "once", "pos", "end", "size",
+    "schema", "detect", "endian", "def", "main", "expect", "field", "let", "require", "fail",
+    "skip", "seek", "while", "if", "else", "break", "region", "at", "call", "once", "pos", "end",
+    "size",
 ];
 
 impl P {
@@ -274,7 +284,10 @@ impl P {
                 Ok(())
             }
             Tok::Sym("}") | Tok::Eof => Ok(()),
-            t => err(self.line(), format!("expected end of statement, found {t:?}")),
+            t => err(
+                self.line(),
+                format!("expected end of statement, found {t:?}"),
+            ),
         }
     }
 
@@ -328,7 +341,10 @@ impl P {
             "field" => {
                 let name = self.ident()?;
                 let ty = self.ident_any()?;
-                let (w, e) = parse_int_type(&ty).ok_or(CompileError { line: l, msg: format!("unknown type {ty}") })?;
+                let (w, e) = parse_int_type(&ty).ok_or(CompileError {
+                    line: l,
+                    msg: format!("unknown type {ty}"),
+                })?;
                 Stmt::Field(name, w, e)
             }
             "let" => {
@@ -405,7 +421,9 @@ impl P {
     fn binary(&mut self, min_prec: u8) -> Result<Expr, CompileError> {
         let mut lhs = self.unary()?;
         loop {
-            let Tok::Sym(s) = self.peek().clone() else { break };
+            let Tok::Sym(s) = self.peek().clone() else {
+                break;
+            };
             let Some(prec) = prec(s) else { break };
             if prec < min_prec {
                 break;
@@ -464,7 +482,9 @@ impl P {
                     self.sym(")")?;
                     Ok(Expr::Func(x, args))
                 }
-                _ if KEYWORDS.contains(&x.as_str()) => err(l, format!("keyword `{x}` in expression")),
+                _ if KEYWORDS.contains(&x.as_str()) => {
+                    err(l, format!("keyword `{x}` in expression"))
+                }
                 _ => Ok(Expr::Var(x)),
             },
             t => err(l, format!("unexpected {t:?} in expression")),
@@ -528,11 +548,19 @@ pub fn parse_int_type(t: &str) -> Option<(u8, Option<Endian>)> {
 }
 
 pub fn parse(src: &str) -> Result<SchemaAst, CompileError> {
-    let mut p = P { toks: lex(src)?, i: 0, depth: 0 };
+    let mut p = P {
+        toks: lex(src)?,
+        i: 0,
+        depth: 0,
+    };
     p.skip_nl();
     p.kw("schema")?;
     let name = p.ident()?;
-    if !name.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_') || name.len() > 32 {
+    if !name
+        .bytes()
+        .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+        || name.len() > 32
+    {
         return err(p.line(), "schema name must be lowercase [a-z0-9_]{1,32}");
     }
     p.end_stmt()?;
@@ -563,22 +591,37 @@ pub fn parse(src: &str) -> Result<SchemaAst, CompileError> {
                 if defs.iter().any(|d| d.name == n) {
                     return err(l, format!("duplicate def {n}"));
                 }
-                defs.push(Def { name: n, line: l, body: p.block()? });
+                defs.push(Def {
+                    name: n,
+                    line: l,
+                    body: p.block()?,
+                });
             }
             Tok::Ident(k) if k == "main" => {
                 if main.is_some() {
                     return err(l, "duplicate main");
                 }
-                main = Some(Def { name: "main".into(), line: l, body: p.block()? });
+                main = Some(Def {
+                    name: "main".into(),
+                    line: l,
+                    body: p.block()?,
+                });
             }
             t => return err(l, format!("unexpected top-level {t:?}")),
         }
         p.end_stmt()?;
     }
-    let Some(main) = main else { return err(0, "missing main block") };
+    let Some(main) = main else {
+        return err(0, "missing main block");
+    };
     if detect.is_empty() {
         return err(0, "at least one detect line is required");
     }
     defs.insert(0, main);
-    Ok(SchemaAst { name, detect, endian, defs })
+    Ok(SchemaAst {
+        name,
+        detect,
+        endian,
+        defs,
+    })
 }

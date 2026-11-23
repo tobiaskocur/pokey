@@ -47,7 +47,10 @@ pub struct CompileError {
 pub fn compile(src: &str) -> Result<Program, CompileError> {
     let ast = parser::parse(src)?;
     let prog = codegen::generate(&ast)?;
-    prog.validate().map_err(|e| CompileError { line: 0, msg: format!("internal: generated invalid IR: {e}") })?;
+    prog.validate().map_err(|e| CompileError {
+        line: 0,
+        msg: format!("internal: generated invalid IR: {e}"),
+    })?;
     Ok(prog)
 }
 

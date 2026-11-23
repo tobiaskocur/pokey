@@ -138,7 +138,11 @@ impl Header {
         if total != total_len as u64 {
             return Err(BundleError::LengthMismatch);
         }
-        Ok(Header { manifest_len, sig_len, artifacts_len })
+        Ok(Header {
+            manifest_len,
+            sig_len,
+            artifacts_len,
+        })
     }
 }
 
@@ -190,7 +194,13 @@ pub struct ReleaseCert {
 
 impl ReleaseCert {
     pub fn unsigned(release_key: [u8; 32], not_before: i64, not_after: i64, channels: u8) -> Self {
-        ReleaseCert { release_key, not_before, not_after, channels, root_sigs: Vec::new() }
+        ReleaseCert {
+            release_key,
+            not_before,
+            not_after,
+            channels,
+            root_sigs: Vec::new(),
+        }
     }
 
     fn fixed(&self) -> [u8; CERT_FIXED_LEN] {
@@ -214,7 +224,8 @@ impl ReleaseCert {
 
     pub fn add_root_signature(&mut self, root: &SigningKey) {
         let sig = root.sign(&self.tbs());
-        self.root_sigs.push((key_id(&root.verifying_key()), sig.to_bytes()));
+        self.root_sigs
+            .push((key_id(&root.verifying_key()), sig.to_bytes()));
     }
 
     pub fn encode(&self) -> Vec<u8> {
@@ -227,7 +238,9 @@ impl ReleaseCert {
     }
 
     pub fn decode(b: &[u8]) -> Result<ReleaseCert, BundleError> {
-        let f = b.get(..CERT_FIXED_LEN).ok_or(BundleError::MalformedSignatureBlock)?;
+        let f = b
+            .get(..CERT_FIXED_LEN)
+            .ok_or(BundleError::MalformedSignatureBlock)?;
         if f[0] != 1 || f[51] != 0 {
             return Err(BundleError::MalformedSignatureBlock);
         }
@@ -258,7 +271,11 @@ impl ReleaseCert {
 
     /// Verify root signatures (threshold of distinct pinned roots) and, when
     /// `now` is given, the validity window. Returns the release key.
-    pub fn verify(&self, anchors: &TrustAnchors, now: Option<i64>) -> Result<VerifyingKey, BundleError> {
+    pub fn verify(
+        &self,
+        anchors: &TrustAnchors,
+        now: Option<i64>,
+    ) -> Result<VerifyingKey, BundleError> {
         let tbs = self.tbs();
         let mut seen = HashSet::new();
         let mut valid = 0usize;
@@ -274,7 +291,10 @@ impl ReleaseCert {
             valid += 1;
         }
         if valid < anchors.threshold {
-            return Err(BundleError::InsufficientRootSignatures { got: valid, need: anchors.threshold });
+            return Err(BundleError::InsufficientRootSignatures {
+                got: valid,
+                need: anchors.threshold,
+            });
         }
         if let Some(now) = now {
             if now < self.not_before {
@@ -374,11 +394,18 @@ pub struct VerifiedBundle<'a> {
 
 impl<'a> VerifiedBundle<'a> {
     pub fn artifact(&self, name: &str) -> Option<&'a [u8]> {
-        let i = self.manifest.artifacts.iter().position(|a| a.name == name)?;
+        let i = self
+            .manifest
+            .artifacts
+            .iter()
+            .position(|a| a.name == name)?;
         self.artifacts.get(i).copied()
     }
 
-    pub fn artifacts_of(&self, kind: ArtifactKind) -> impl Iterator<Item = (&ArtifactEntry, &'a [u8])> + '_ {
+    pub fn artifacts_of(
+        &self,
+        kind: ArtifactKind,
+    ) -> impl Iterator<Item = (&ArtifactEntry, &'a [u8])> + '_ {
         self.manifest
             .artifacts
             .iter()
@@ -392,7 +419,10 @@ impl<'a> VerifiedBundle<'a> {
 pub enum VerifyMode {
     /// Sensor activating a new bundle: certificate validity window, manifest
     /// expiry and strictly increasing version are enforced.
-    Activation { now: i64, current_version: Option<u64> },
+    Activation {
+        now: i64,
+        current_version: Option<u64>,
+    },
     /// Loading an already activated bundle (inspector, self-test). Signatures
     /// and hashes are still verified; an expired bundle keeps scanning and is
     /// reported through `VerifiedBundle::expired`.
@@ -423,7 +453,11 @@ fn signed_message(header: &[u8], manifest: &[u8]) -> Vec<u8> {
 impl<'a> Unverified<'a> {
     /// Step 2: verify the certificate chain and the release signature over
     /// header+manifest. In load mode the validity window is not enforced.
-    pub fn verify_signatures(self, anchors: &TrustAnchors, mode: VerifyMode) -> Result<Authenticated<'a>, BundleError> {
+    pub fn verify_signatures(
+        self,
+        anchors: &TrustAnchors,
+        mode: VerifyMode,
+    ) -> Result<Authenticated<'a>, BundleError> {
         if self.sig_block.len() < 64 {
             return Err(BundleError::MalformedSignatureBlock);
         }
@@ -434,9 +468,15 @@ impl<'a> Unverified<'a> {
             VerifyMode::Load { .. } => None,
         };
         let release = cert.verify(anchors, now)?;
-        let sig = Signature::from_bytes(sig.try_into().map_err(|_| BundleError::MalformedSignatureBlock)?);
+        let sig = Signature::from_bytes(
+            sig.try_into()
+                .map_err(|_| BundleError::MalformedSignatureBlock)?,
+        );
         release
-            .verify_strict(&signed_message(self.header_bytes, self.manifest_bytes), &sig)
+            .verify_strict(
+                &signed_message(self.header_bytes, self.manifest_bytes),
+                &sig,
+            )
             .map_err(|_| BundleError::BadSignature)?;
         Ok(Authenticated { inner: self, cert })
     }
@@ -446,8 +486,11 @@ fn valid_artifact_name(n: &str) -> bool {
     !n.is_empty()
         && n.len() <= 128
         && !n.starts_with('/')
-        && !n.split('/').any(|seg| seg.is_empty() || seg == "." || seg == "..")
-        && n.bytes().all(|b| b.is_ascii_alphanumeric() || b"._-/".contains(&b))
+        && !n
+            .split('/')
+            .any(|seg| seg.is_empty() || seg == "." || seg == "..")
+        && n.bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b"._-/".contains(&b))
 }
 
 impl<'a> Authenticated<'a> {
@@ -465,13 +508,22 @@ impl<'a> Authenticated<'a> {
             return Err(BundleError::ChannelNotAllowed);
         }
         if m.min_engine > ENGINE_VERSION {
-            return Err(BundleError::IncompatibleEngine { need: m.min_engine, have: ENGINE_VERSION });
+            return Err(BundleError::IncompatibleEngine {
+                need: m.min_engine,
+                have: ENGINE_VERSION,
+            });
         }
         let expired = match mode {
-            VerifyMode::Activation { now, current_version } => {
+            VerifyMode::Activation {
+                now,
+                current_version,
+            } => {
                 if let Some(cur) = current_version {
                     if m.version <= cur {
-                        return Err(BundleError::VersionNotIncreasing { got: m.version, current: cur });
+                        return Err(BundleError::VersionNotIncreasing {
+                            got: m.version,
+                            current: cur,
+                        });
                     }
                 }
                 if now >= m.expires {
@@ -490,18 +542,25 @@ impl<'a> Authenticated<'a> {
         let mut slices = Vec::with_capacity(m.artifacts.len());
         for a in &m.artifacts {
             if !valid_artifact_name(&a.name) || !names.insert(a.name.as_str()) {
-                return Err(BundleError::ManifestInvalid("bad or duplicate artifact name"));
+                return Err(BundleError::ManifestInvalid(
+                    "bad or duplicate artifact name",
+                ));
             }
             if a.kind == ArtifactKind::Policy {
                 policies += 1;
             }
-            let end = offset.checked_add(a.size).ok_or(BundleError::ManifestInvalid("artifact size overflow"))?;
+            let end = offset
+                .checked_add(a.size)
+                .ok_or(BundleError::ManifestInvalid("artifact size overflow"))?;
             let data = self
                 .inner
                 .artifacts
                 .get(offset as usize..end as usize)
-                .ok_or(BundleError::ManifestInvalid("artifact outside artifact region"))?;
-            let want = hex::decode(&a.sha256).map_err(|_| BundleError::ManifestInvalid("bad sha256 hex"))?;
+                .ok_or(BundleError::ManifestInvalid(
+                    "artifact outside artifact region",
+                ))?;
+            let want = hex::decode(&a.sha256)
+                .map_err(|_| BundleError::ManifestInvalid("bad sha256 hex"))?;
             if want.len() != 32 || Sha256::digest(data).as_slice() != want.as_slice() {
                 return Err(BundleError::ArtifactHashMismatch(a.name.clone()));
             }
@@ -509,29 +568,47 @@ impl<'a> Authenticated<'a> {
             offset = end;
         }
         if offset != self.inner.artifacts.len() as u64 {
-            return Err(BundleError::ManifestInvalid("artifact sizes do not cover artifact region"));
+            return Err(BundleError::ManifestInvalid(
+                "artifact sizes do not cover artifact region",
+            ));
         }
         if policies != 1 {
-            return Err(BundleError::ManifestInvalid("exactly one policy artifact required"));
+            return Err(BundleError::ManifestInvalid(
+                "exactly one policy artifact required",
+            ));
         }
         for t in &m.self_tests {
             let fixture = m.artifacts.iter().find(|a| a.name == t.fixture);
             if fixture.map(|a| a.kind) != Some(ArtifactKind::Fixture) {
-                return Err(BundleError::ManifestInvalid("self-test references a missing fixture"));
+                return Err(BundleError::ManifestInvalid(
+                    "self-test references a missing fixture",
+                ));
             }
         }
-        Ok(VerifiedBundle { manifest: m, cert: self.cert, expired, artifacts: slices })
+        Ok(VerifiedBundle {
+            manifest: m,
+            cert: self.cert,
+            expired,
+            artifacts: slices,
+        })
     }
 }
 
 /// Full verification pipeline: split -> verify signatures -> parse manifest.
-pub fn verify<'a>(bytes: &'a [u8], anchors: &TrustAnchors, mode: VerifyMode) -> Result<VerifiedBundle<'a>, BundleError> {
+pub fn verify<'a>(
+    bytes: &'a [u8],
+    anchors: &TrustAnchors,
+    mode: VerifyMode,
+) -> Result<VerifiedBundle<'a>, BundleError> {
     split(bytes)?.verify_signatures(anchors, mode)?.parse(mode)
 }
 
 /// Build an unsigned bundle (signature block empty). Artifact entries are
 /// derived from `artifacts`; the manifest's `artifacts` field is overwritten.
-pub fn build_unsigned(mut manifest: Manifest, artifacts: &[(String, ArtifactKind, Vec<u8>)]) -> Result<Vec<u8>, BundleError> {
+pub fn build_unsigned(
+    mut manifest: Manifest,
+    artifacts: &[(String, ArtifactKind, Vec<u8>)],
+) -> Result<Vec<u8>, BundleError> {
     manifest.artifacts = artifacts
         .iter()
         .map(|(name, kind, data)| ArtifactEntry {
@@ -541,7 +618,8 @@ pub fn build_unsigned(mut manifest: Manifest, artifacts: &[(String, ArtifactKind
             sha256: hex::encode(Sha256::digest(data)),
         })
         .collect();
-    let mbytes = serde_json::to_vec_pretty(&manifest).map_err(|e| BundleError::ManifestParse(e.to_string()))?;
+    let mbytes = serde_json::to_vec_pretty(&manifest)
+        .map_err(|e| BundleError::ManifestParse(e.to_string()))?;
     let alen: usize = artifacts.iter().map(|a| a.2.len()).sum();
     if mbytes.len() > MAX_MANIFEST_LEN as usize {
         return Err(BundleError::LengthOutOfBounds("manifest_len"));
@@ -549,7 +627,11 @@ pub fn build_unsigned(mut manifest: Manifest, artifacts: &[(String, ArtifactKind
     if alen as u64 > MAX_ARTIFACTS_LEN {
         return Err(BundleError::LengthOutOfBounds("artifacts_len"));
     }
-    let h = Header { manifest_len: mbytes.len() as u32, sig_len: 0, artifacts_len: alen as u64 };
+    let h = Header {
+        manifest_len: mbytes.len() as u32,
+        sig_len: 0,
+        artifacts_len: alen as u64,
+    };
     let mut out = h.encode().to_vec();
     out.extend_from_slice(&mbytes);
     for a in artifacts {
@@ -558,6 +640,9 @@ pub fn build_unsigned(mut manifest: Manifest, artifacts: &[(String, ArtifactKind
     Ok(out)
 }
 
+/// Produces a 64-byte Ed25519 signature over a message (local key, HSM or KMS).
+pub type SignFn<'a> = dyn FnMut(&[u8]) -> Result<[u8; 64], String> + 'a;
+
 /// Sign an unsigned bundle with the release key behind `signer`. The signer
 /// receives the exact message and returns a 64-byte Ed25519 signature (local
 /// key, HSM or KMS). The produced signature is verified against the
@@ -565,7 +650,7 @@ pub fn build_unsigned(mut manifest: Manifest, artifacts: &[(String, ArtifactKind
 pub fn sign(
     unsigned: &[u8],
     cert: &ReleaseCert,
-    signer: &mut dyn FnMut(&[u8]) -> Result<[u8; 64], String>,
+    signer: &mut SignFn<'_>,
 ) -> Result<Vec<u8>, BundleError> {
     let h = Header::decode(unsigned, unsigned.len())?;
     if h.sig_len != 0 {
@@ -579,10 +664,13 @@ pub fn sign(
     let header = Header { sig_len, ..h }.encode();
     let msg = signed_message(&header, manifest);
     let sig = signer(&msg).map_err(BundleError::Signer)?;
-    let release = VerifyingKey::from_bytes(&cert.release_key).map_err(|_| BundleError::BadReleaseKey)?;
+    let release =
+        VerifyingKey::from_bytes(&cert.release_key).map_err(|_| BundleError::BadReleaseKey)?;
     release
         .verify_strict(&msg, &Signature::from_bytes(&sig))
-        .map_err(|_| BundleError::Signer("signature does not match certificate release key".into()))?;
+        .map_err(|_| {
+            BundleError::Signer("signature does not match certificate release key".into())
+        })?;
     let mut out = header.to_vec();
     out.extend_from_slice(manifest);
     out.extend_from_slice(&cert_bytes);
