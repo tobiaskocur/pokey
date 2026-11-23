@@ -518,7 +518,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "edr-core"
+name = "pokey-core"
 version = "0.1.0"
 dependencies = [
  "crc32fast",
@@ -533,11 +533,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "edr-fuzz"
+name = "pokey-fuzz"
 version = "0.0.0"
 dependencies = [
  "ed25519-dalek",
- "edr-core",
+ "pokey-core",
  "libfuzzer-sys",
 ]
 

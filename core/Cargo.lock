@@ -516,44 +516,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "edr-core"
-version = "0.1.0"
-dependencies = [
- "crc32fast",
- "ed25519-dalek",
- "hex",
- "postcard",
- "rand_core",
- "serde",
- "serde_json",
- "sha2",
- "thiserror 2.0.21",
- "yara-x",
-]
-
-[[package]]
-name = "edr-ffi"
-version = "0.1.0"
-dependencies = [
- "ed25519-dalek",
- "edr-core",
- "edr-rulec",
-]
-
-[[package]]
-name = "edr-rulec"
-version = "0.1.0"
-dependencies = [
- "ed25519-dalek",
- "edr-core",
- "hex",
- "rand_core",
- "serde",
- "serde_json",
- "sha2",
-]
-
-[[package]]
 name = "either"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1019,6 +981,44 @@ checksum = "f950b2377845cebe5cf8b5165cb3cc1a5e0fa5cfa3e1f7f55707d8fd82e0a7b7"
 dependencies = [
  "der",
  "spki",
+]
+
+[[package]]
+name = "pokey-core"
+version = "0.1.0"
+dependencies = [
+ "crc32fast",
+ "ed25519-dalek",
+ "hex",
+ "postcard",
+ "rand_core",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.21",
+ "yara-x",
+]
+
+[[package]]
+name = "pokey-ffi"
+version = "0.1.0"
+dependencies = [
+ "ed25519-dalek",
+ "pokey-core",
+ "pokey-rulec",
+]
+
+[[package]]
+name = "pokey-rulec"
+version = "0.1.0"
+dependencies = [
+ "ed25519-dalek",
+ "hex",
+ "pokey-core",
+ "rand_core",
+ "serde",
+ "serde_json",
+ "sha2",
 ]
 
 [[package]]

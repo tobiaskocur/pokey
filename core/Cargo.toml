@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["edr-core", "edr-ffi", "edr-rulec"]
+members = ["pokey-core", "pokey-ffi", "pokey-rulec"]
 
 [workspace.package]
 version = "0.1.0"

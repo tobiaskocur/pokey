@@ -1,6 +1,6 @@
 #!/bin/sh
 # Regenerates the benign corpus (rules/benign) from ffmpeg test patterns. Every
-# file must scan CLEAN; `edr-rulec test --benign` is the false-positive gate.
+# file must scan CLEAN; `pokey-rulec test --benign` is the false-positive gate.
 # Add real-world images from cameras and editors here as they are collected.
 set -eu
 cd "$(dirname "$0")/../benign"

@@ -2,7 +2,7 @@
 #![no_main]
 use std::sync::OnceLock;
 
-use edr_core::schema::{compile, run, Limits, Program};
+use pokey_core::schema::{compile, run, Limits, Program};
 use libfuzzer_sys::fuzz_target;
 
 fn programs() -> &'static [Program] {

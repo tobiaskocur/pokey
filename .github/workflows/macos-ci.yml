@@ -31,7 +31,7 @@ jobs:
         with:
           workspaces: core
       - run: swift --version && xcodebuild -version
-      - name: Swift tests (EDRCore, EDRRules)
+      - name: Swift tests (PokeyCore, PokeyRules)
         run: make test
       - name: SwiftPM build of all macOS targets
         run: make build

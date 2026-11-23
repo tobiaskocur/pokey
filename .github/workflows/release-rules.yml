@@ -40,8 +40,8 @@ jobs:
           CHANNEL: ${{ inputs.channel }}
           DAYS: ${{ inputs.expires_days }}
         run: |
-          cargo build --release --locked -p edr-rulec --manifest-path core/Cargo.toml
-          R=core/target/release/edr-rulec
+          cargo build --release --locked -p pokey-rulec --manifest-path core/Cargo.toml
+          R=core/target/release/pokey-rulec
           $R lint --rules rules --deny-warnings
           $R test --rules rules --benign rules/benign --max-ms 50 --max-fuel-pct 50
           $R compile --rules rules --version "$VERSION" --channel "$CHANNEL" --expires-days "$DAYS" --out unsigned.bundle
@@ -86,8 +86,8 @@ jobs:
           CHANNEL: ${{ inputs.channel }}
         run: |
           sha256sum -c unsigned.sha256
-          cargo build --release --locked -p edr-rulec --manifest-path core/Cargo.toml
-          R=core/target/release/edr-rulec
+          cargo build --release --locked -p pokey-rulec --manifest-path core/Cargo.toml
+          R=core/target/release/pokey-rulec
           echo "$RELEASE_CERT_B64" | base64 -d > release.cert
           $R cert-show --cert release.cert
           $R sign --in unsigned.bundle --cert release.cert --signer-cmd "$SIGNER_CMD" --out "rules-$VERSION.bundle"

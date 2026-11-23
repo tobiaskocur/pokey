@@ -1,14 +1,14 @@
 # XcodeGen spec: `make xcode` (needs xcodegen, Xcode 16+, and the Rust static
 # library from `make core`). Identity comes from Config/Identity.xcconfig.
 #
-# EDRAgent.app (host, /Applications)
-#   Contents/MacOS/EDRAgent             host UI: installs the pieces below
-#   Contents/MacOS/edr-netd             LaunchDaemon as _edrnet (reads host Info.plist)
-#   Contents/Helpers/EDR Alerts.app     per-user LaunchAgent (notifications)
+# Pokey.app (host, /Applications)
+#   Contents/MacOS/Pokey             host UI: installs the pieces below
+#   Contents/MacOS/pokey-netd             LaunchDaemon as _pokeynet (reads host Info.plist)
+#   Contents/Helpers/Pokey Alerts.app     per-user LaunchAgent (notifications)
 #   Contents/Library/LaunchDaemons/netd.plist, LaunchAgents/ui.plist (rendered)
 #   Contents/Library/SystemExtensions/<prefix>.sensor.systemextension
-#     Contents/MacOS/edr-sensor, Contents/MacOS/edr-inspector, Resources/trust-roots.txt
-name: EDRAgent
+#     Contents/MacOS/pokey-sensor, Contents/MacOS/pokey-inspector, Resources/trust-roots.txt
+name: Pokey
 options:
   deploymentTarget:
     macOS: "13.0"
@@ -26,10 +26,10 @@ settings:
     ENABLE_HARDENED_RUNTIME: YES
     CODE_SIGN_STYLE: Manual
     CODE_SIGN_IDENTITY: "Developer ID Application"
-    DEVELOPMENT_TEAM: $(EDR_TEAM_ID)
+    DEVELOPMENT_TEAM: $(POKEY_TEAM_ID)
     OTHER_CODE_SIGN_FLAGS: "--timestamp"
     CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
-    SWIFT_INCLUDE_PATHS: $(SRCROOT)/Sources/CEDRCore
+    SWIFT_INCLUDE_PATHS: $(SRCROOT)/Sources/CPokeyCore
     LIBRARY_SEARCH_PATHS: $(SRCROOT)/../core/target/swift
     DEAD_CODE_STRIPPING: YES
     SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
@@ -45,104 +45,104 @@ targetTemplates:
       OTHER_CODE_SIGN_FLAGS: "--timestamp -i $(PRODUCT_BUNDLE_IDENTIFIER)"
 
 targets:
-  EDRCore:
+  PokeyCore:
     type: library.static
     platform: macOS
-    sources: [Sources/EDRCore]
+    sources: [Sources/PokeyCore]
 
-  EDRRules:
+  PokeyRules:
     type: library.static
     platform: macOS
-    sources: [Sources/EDRRules]
+    sources: [Sources/PokeyRules]
     dependencies:
-      - target: EDRCore
+      - target: PokeyCore
 
-  EDRPlatform:
+  PokeyPlatform:
     type: library.static
     platform: macOS
-    sources: [Sources/EDRPlatform]
+    sources: [Sources/PokeyPlatform]
     dependencies:
-      - target: EDRCore
+      - target: PokeyCore
 
-  edr-inspector:
+  pokey-inspector:
     templates: [Tool]
-    sources: [Sources/edr-inspector]
+    sources: [Sources/pokey-inspector]
     settings:
-      PRODUCT_BUNDLE_IDENTIFIER: $(EDR_BUNDLE_PREFIX).inspector
-      OTHER_LDFLAGS: -ledr_ffi
+      PRODUCT_BUNDLE_IDENTIFIER: $(POKEY_BUNDLE_PREFIX).inspector
+      OTHER_LDFLAGS: -lpokey_ffi
     dependencies:
-      - target: EDRCore
-      - target: EDRRules
-      - target: EDRPlatform
+      - target: PokeyCore
+      - target: PokeyRules
+      - target: PokeyPlatform
 
-  edr-netd:
+  pokey-netd:
     templates: [Tool]
-    sources: [Sources/edr-netd]
+    sources: [Sources/pokey-netd]
     settings:
-      PRODUCT_BUNDLE_IDENTIFIER: $(EDR_BUNDLE_PREFIX).netd
+      PRODUCT_BUNDLE_IDENTIFIER: $(POKEY_BUNDLE_PREFIX).netd
     dependencies:
-      - target: EDRCore
-      - target: EDRPlatform
+      - target: PokeyCore
+      - target: PokeyPlatform
 
-  edr-sensor:
+  pokey-sensor:
     type: system-extension
     platform: macOS
     sources:
-      - Sources/edr-sensor
+      - Sources/pokey-sensor
       - path: Config/trust-roots.txt
         buildPhase: resources
     settings:
-      PRODUCT_NAME: $(EDR_BUNDLE_PREFIX).sensor
-      PRODUCT_BUNDLE_IDENTIFIER: $(EDR_BUNDLE_PREFIX).sensor
-      EXECUTABLE_NAME: edr-sensor
+      PRODUCT_NAME: $(POKEY_BUNDLE_PREFIX).sensor
+      PRODUCT_BUNDLE_IDENTIFIER: $(POKEY_BUNDLE_PREFIX).sensor
+      EXECUTABLE_NAME: pokey-sensor
       INFOPLIST_FILE: Config/Sensor-Info.plist
       CODE_SIGN_ENTITLEMENTS: Config/Sensor.entitlements
-      PROVISIONING_PROFILE_SPECIFIER: $(EDR_SENSOR_PROFILE)
+      PROVISIONING_PROFILE_SPECIFIER: $(POKEY_SENSOR_PROFILE)
       SKIP_INSTALL: YES
-      OTHER_LDFLAGS: -ledr_ffi
+      OTHER_LDFLAGS: -lpokey_ffi
     dependencies:
-      - target: EDRCore
-      - target: EDRRules
-      - target: EDRPlatform
+      - target: PokeyCore
+      - target: PokeyRules
+      - target: PokeyPlatform
       - sdk: libEndpointSecurity.tbd
       - sdk: libbsm.tbd
       - sdk: libsqlite3.tbd
-      - target: edr-inspector
+      - target: pokey-inspector
         copy:
           destination: executables
 
-  EDRAlerts:
+  PokeyAlerts:
     type: application
     platform: macOS
-    sources: [Sources/edr-ui]
+    sources: [Sources/pokey-ui]
     settings:
-      PRODUCT_NAME: EDR Alerts
-      PRODUCT_BUNDLE_IDENTIFIER: $(EDR_BUNDLE_PREFIX).ui
+      PRODUCT_NAME: Pokey Alerts
+      PRODUCT_BUNDLE_IDENTIFIER: $(POKEY_BUNDLE_PREFIX).ui
       INFOPLIST_FILE: Config/UI-Info.plist
       CODE_SIGN_ENTITLEMENTS: Config/None.entitlements
       SKIP_INSTALL: YES
     dependencies:
-      - target: EDRCore
-      - target: EDRPlatform
+      - target: PokeyCore
+      - target: PokeyPlatform
 
-  EDRHost:
+  PokeyHost:
     type: application
     platform: macOS
-    sources: [Sources/EDRHost]
+    sources: [Sources/PokeyHost]
     settings:
-      PRODUCT_NAME: EDRAgent
-      PRODUCT_BUNDLE_IDENTIFIER: $(EDR_BUNDLE_PREFIX).host
+      PRODUCT_NAME: Pokey
+      PRODUCT_BUNDLE_IDENTIFIER: $(POKEY_BUNDLE_PREFIX).host
       INFOPLIST_FILE: Config/Host-Info.plist
       CODE_SIGN_ENTITLEMENTS: Config/Host.entitlements
-      PROVISIONING_PROFILE_SPECIFIER: $(EDR_HOST_PROFILE)
+      PROVISIONING_PROFILE_SPECIFIER: $(POKEY_HOST_PROFILE)
     dependencies:
-      - target: EDRPlatform
-      - target: EDRCore
-      - target: edr-sensor
-      - target: edr-netd
+      - target: PokeyPlatform
+      - target: PokeyCore
+      - target: pokey-sensor
+      - target: pokey-netd
         copy:
           destination: executables
-      - target: EDRAlerts
+      - target: PokeyAlerts
         copy:
           destination: wrapper
           subpath: Contents/Helpers
@@ -157,7 +157,7 @@ targets:
           - $(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Library/LaunchAgents/ui.plist
 
 schemes:
-  EDRHost:
+  PokeyHost:
     build:
       targets:
-        EDRHost: all
+        PokeyHost: all

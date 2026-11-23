@@ -1,12 +1,12 @@
 #!/bin/sh
 # Builds a signed test bundle from rules/ with throwaway keys (1-of-1 root) for
-# EDRRulesTests: <out>/rules.bundle and <out>/roots.txt.
+# PokeyRulesTests: <out>/rules.bundle and <out>/roots.txt.
 set -eu
 CORE=$(cd "$(dirname "$0")/../../core" && pwd)
 OUT=${1:?usage: make-test-bundle.sh OUTDIR}
 mkdir -p "$OUT"
-cargo build --quiet --release -p edr-rulec --manifest-path "$CORE/Cargo.toml"
-RULEC="$CORE/target/release/edr-rulec"
+cargo build --quiet --release -p pokey-rulec --manifest-path "$CORE/Cargo.toml"
+RULEC="$CORE/target/release/pokey-rulec"
 K=$(mktemp -d)
 trap 'rm -rf "$K"' EXIT
 "$RULEC" keygen --out "$K/root" >/dev/null

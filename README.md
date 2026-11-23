@@ -1,12 +1,12 @@
-# macos-edr-agent
+# Pokey
 
 A macOS agent that scans files downloaded from the internet in a sandboxed process against signed YARA-X and file-format rules.
 
-[![core](https://github.com/tobiaskocur/macos-edr-agent/actions/workflows/core-ci.yml/badge.svg)](https://github.com/tobiaskocur/macos-edr-agent/actions/workflows/core-ci.yml)
-[![rules](https://github.com/tobiaskocur/macos-edr-agent/actions/workflows/rules-ci.yml/badge.svg)](https://github.com/tobiaskocur/macos-edr-agent/actions/workflows/rules-ci.yml)
-[![macos](https://github.com/tobiaskocur/macos-edr-agent/actions/workflows/macos-ci.yml/badge.svg)](https://github.com/tobiaskocur/macos-edr-agent/actions/workflows/macos-ci.yml)
+[![core](https://github.com/tobiaskocur/pokey/actions/workflows/core-ci.yml/badge.svg)](https://github.com/tobiaskocur/pokey/actions/workflows/core-ci.yml)
+[![rules](https://github.com/tobiaskocur/pokey/actions/workflows/rules-ci.yml/badge.svg)](https://github.com/tobiaskocur/pokey/actions/workflows/rules-ci.yml)
+[![macos](https://github.com/tobiaskocur/pokey/actions/workflows/macos-ci.yml/badge.svg)](https://github.com/tobiaskocur/pokey/actions/workflows/macos-ci.yml)
 
-![edr-rulec: certify a release key, test, compile, sign, verify and scan](docs/assets/rule-pipeline.gif)
+![pokey-rulec: certify a release key, test, compile, sign, verify and scan](docs/assets/rule-pipeline.gif)
 
 Status: early. Every target builds and the tests pass in CI on Linux and macOS, but nothing has run on a real Mac with the Endpoint Security entitlement yet. Details and known gaps: [docs/deploying.md](docs/deploying.md#status).
 
@@ -14,10 +14,10 @@ Status: early. Every target builds and the tests pass in CI on Linux and macOS, 
 
 | Process | Runs as | Does |
 | --- | --- | --- |
-| `edr-sensor` | root, system extension | Filters Endpoint Security file events down to quarantined files, hashes them, hands them to an inspector, keeps verdicts. Never parses file contents. |
-| `edr-inspector` | `_edrinspect`, one process per file | Runs YARA-X, format schemas and an ImageIO decode in a sandbox with no network and no writes. |
-| `edr-netd` | `_edrnet` | Downloads signed rule bundles, uploads telemetry. |
-| `edr-ui` | logged-in user | Shows alerts as notifications. |
+| `pokey-sensor` | root, system extension | Filters Endpoint Security file events down to quarantined files, hashes them, hands them to an inspector, keeps verdicts. Never parses file contents. |
+| `pokey-inspector` | `_pokeyinspect`, one process per file | Runs YARA-X, format schemas and an ImageIO decode in a sandbox with no network and no writes. |
+| `pokey-netd` | `_pokeynet` | Downloads signed rule bundles, uploads telemetry. |
+| `pokey-ui` | logged-in user | Shows alerts as notifications. |
 
 The rule compiler and the scan engine are Rust (`core/`); the macOS processes are Swift (`macos/`).
 
@@ -30,7 +30,7 @@ Rust core and rule compiler (Linux or macOS):
 ```sh
 cd core
 cargo test --workspace --locked
-cargo build --release -p edr-rulec
+cargo build --release -p pokey-rulec
 ```
 
 Swift logic tests (Linux or macOS):
@@ -52,18 +52,18 @@ Signing with your own team ID and Endpoint Security entitlement is described in 
 
 ## Usage
 
-`edr-rulec` lints, tests, compiles, signs and runs the rules in [`rules/`](rules):
+`pokey-rulec` lints, tests, compiles, signs and runs the rules in [`rules/`](rules):
 
 ```sh
 # from the repo root
-R=core/target/release/edr-rulec
+R=core/target/release/pokey-rulec
 $R lint --rules rules --deny-warnings
 $R test --rules rules --benign rules/benign --max-ms 50 --max-fuel-pct 50
 $R compile --rules rules --version 1 --channel canary --expires-days 7 --out unsigned.bundle
 $R scan --rules rules path/to/file.png
 ```
 
-Run `edr-rulec` with no arguments to list the key, certificate, signing and verification commands. The GIF above is [docs/demo/demo.sh](docs/demo/demo.sh).
+Run `pokey-rulec` with no arguments to list the key, certificate, signing and verification commands. The GIF above is [docs/demo/demo.sh](docs/demo/demo.sh).
 
 ## Documentation
 

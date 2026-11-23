@@ -45,8 +45,8 @@ jobs:
       - name: Lint, fixtures, benign corpus, budgets
         if: steps.engine.outputs.dir != ''
         run: |
-          cargo build --release --locked -p edr-rulec --manifest-path "${{ steps.engine.outputs.dir }}/Cargo.toml"
-          RULEC="${{ steps.engine.outputs.dir }}/target/release/edr-rulec"
+          cargo build --release --locked -p pokey-rulec --manifest-path "${{ steps.engine.outputs.dir }}/Cargo.toml"
+          RULEC="${{ steps.engine.outputs.dir }}/target/release/pokey-rulec"
           "$RULEC" lint --rules rules --deny-warnings
           "$RULEC" test --rules rules --benign rules/benign --max-ms 50 --max-fuel-pct 50
           "$RULEC" compile --rules rules --version 1 --channel canary --expires-days 1 --out "$RUNNER_TEMP/unsigned"

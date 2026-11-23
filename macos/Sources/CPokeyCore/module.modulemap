@@ -1,0 +1,5 @@
+module CPokeyCore [system] {
+    header "../../../core/pokey-ffi/include/pokey_core.h"
+    link "pokey_ffi"
+    export *
+}
