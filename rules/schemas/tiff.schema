@@ -1,0 +1,63 @@
+# TIFF (classic, not BigTIFF): header, IFD chain without cycles, every entry
+# type known and every out-of-line value inside the file.
+schema tiff
+detect at 0 hex"49492A00"
+detect at 0 hex"4D4D002A"
+
+def ifd {
+  field count u16
+  require count > 0 "empty IFD"
+  require count * 12 + 4 <= end - pos "IFD runs past end of file"
+  let i = 0
+  while i < count {
+    field tag u16
+    field type u16
+    field n u32
+    field value u32
+    require type >= 1 && type <= 13 "unknown TIFF field type"
+    let width = 1
+    if type == 3 || type == 8 {
+      let width = 2
+    } else if type == 4 || type == 9 || type == 11 || type == 13 {
+      let width = 4
+    } else if type == 5 || type == 10 || type == 12 {
+      let width = 8
+    }
+    let bytes = n * width
+    if bytes > 4 {
+      require value + bytes <= size "tag data outside file"
+    }
+    if tag == 273 || tag == 324 {
+      # StripOffsets / TileOffsets with a single inline offset
+      if n == 1 {
+        require value < size "strip offset outside file"
+      }
+    }
+    let i = i + 1
+  }
+}
+
+main {
+  field order u16
+  if order == 0x4949 {
+    endian little
+  } else if order == 0x4D4D {
+    endian big
+  } else {
+    fail "bad byte order mark"
+  }
+  field magic u16
+  require magic == 42 "bad TIFF magic"
+  field next u32
+  require next != 0 "no IFD"
+  let ifds = 0
+  while next != 0 {
+    require next >= 8 "IFD offset inside header"
+    once next "IFD chain loops"
+    let ifds = ifds + 1
+    require ifds <= 256 "too many IFDs"
+    seek next
+    call ifd
+    field next u32
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "fixtures": [
+    { "fixture": "png_valid.png", "expect": "CLEAN", "self_test": true },
+    { "fixture": "png_text_chunk.png", "expect": "CLEAN" },
+    { "fixture": "png_trailing_data.png", "expect": "SCHEMA_VIOLATION", "rule": "png", "self_test": true },
+    { "fixture": "png_bad_crc.png", "expect": "SCHEMA_VIOLATION", "rule": "png" },
+    { "fixture": "png_huge_dimensions.png", "expect": "SCHEMA_VIOLATION", "rule": "png" },
+    { "fixture": "png_trailing_macho.png", "expect": "STATIC_MATCH", "rule": "image_with_embedded_macho", "self_test": true },
+    { "fixture": "png_script.png", "expect": "STATIC_MATCH", "rule": "image_with_embedded_script" },
+    { "fixture": "tiff_valid.tif", "expect": "CLEAN", "self_test": true },
+    { "fixture": "tiff_ifd_loop.tif", "expect": "SCHEMA_VIOLATION", "rule": "tiff" },
+    { "fixture": "tiff_tag_outside.tif", "expect": "SCHEMA_VIOLATION", "rule": "tiff" },
+    { "fixture": "heic_valid.heic", "expect": "CLEAN", "self_test": true },
+    { "fixture": "heic_box_overflow.heic", "expect": "SCHEMA_VIOLATION", "rule": "isobmff" },
+    { "fixture": "heic_deep_nesting.heic", "expect": "RESOURCE_EXCEEDED" },
+    { "fixture": "not_an_image.bin", "expect": "CLEAN" }
+  ]
+}

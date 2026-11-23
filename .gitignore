@@ -1,0 +1,10 @@
+.pi/
+core/target/
+core/fuzz/target/
+core/fuzz/corpus/
+core/fuzz/artifacts/
+macos/.build/
+macos/*.xcodeproj
+*.key
+!core/edr-core/testdata/**/*.key
+dist/

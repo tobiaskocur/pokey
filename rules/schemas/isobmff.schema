@@ -1,0 +1,48 @@
+# ISO base media (HEIC/AVIF/MP4/MOV): every box size fits its parent, known
+# containers are walked recursively, ftyp comes first.
+schema isobmff
+detect at 4 hex"66747970"
+endian big
+
+def boxes {
+  while pos < end {
+    require end - pos >= 8 "truncated box header"
+    let start = pos
+    field size32 u32
+    field type u32
+    let boxlen = size32
+    if size32 == 1 {
+      require end - pos >= 8 "truncated largesize"
+      field large u64
+      let boxlen = large
+      require boxlen >= 16 "largesize smaller than its header"
+    } else if size32 == 0 {
+      let boxlen = end - start
+    } else {
+      require size32 >= 8 "box size smaller than its header"
+    }
+    require boxlen <= end - start "box extends past its parent"
+    let body = boxlen - (pos - start)
+    if type == fourcc"moov" || type == fourcc"trak" || type == fourcc"mdia" || type == fourcc"minf" || type == fourcc"stbl" || type == fourcc"dinf" || type == fourcc"edts" || type == fourcc"udta" || type == fourcc"mvex" || type == fourcc"moof" || type == fourcc"traf" || type == fourcc"mfra" || type == fourcc"iprp" || type == fourcc"ipco" {
+      region body {
+        call boxes
+      }
+    } else if type == fourcc"meta" {
+      region body {
+        # ISO meta is a FullBox (4 bytes version/flags); QuickTime meta is not.
+        if end - pos >= 12 && u32(pos + 8) == fourcc"hdlr" {
+          skip 4
+        }
+        call boxes
+      }
+    } else {
+      skip body
+    }
+  }
+}
+
+main {
+  require u32(4) == fourcc"ftyp" "first box must be ftyp"
+  require u32(0) >= 16 "ftyp too small"
+  call boxes
+}

@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "max_fuel": 50000000,
+  "memory_limit_mb": 512,
+  "formats": {
+    "png": { "extensions": ["png"], "schema": "png", "decode": true, "max_bytes": 268435456, "max_pixels": 100000000, "deadline_ms": 5000 },
+    "tiff": { "extensions": ["tif", "tiff"], "schema": "tiff", "decode": true, "max_bytes": 268435456, "max_pixels": 100000000, "deadline_ms": 5000 },
+    "isobmff": { "extensions": ["heic", "heif", "avif", "mp4", "m4v", "mov"], "schema": "isobmff", "decode": true, "max_bytes": 1073741824, "max_pixels": 100000000, "deadline_ms": 8000 },
+    "jpeg": { "extensions": ["jpg", "jpeg"], "schema": null, "decode": true, "max_bytes": 268435456, "max_pixels": 100000000, "deadline_ms": 5000 },
+    "gif": { "extensions": ["gif"], "schema": null, "decode": true, "max_bytes": 134217728, "max_pixels": 100000000, "deadline_ms": 5000 },
+    "other": { "extensions": [], "schema": null, "decode": false, "max_bytes": 1073741824, "max_pixels": 0, "deadline_ms": 5000 }
+  },
+  "outcomes": {
+    "CLEAN": { "severity": "none", "action": "allow" },
+    "STATIC_MATCH": { "severity": "high", "action": "alert" },
+    "SCHEMA_VIOLATION": { "severity": "medium", "action": "alert" },
+    "DECODE_ERROR": { "severity": "low", "action": "log" },
+    "TIMEOUT": { "severity": "low", "action": "log" },
+    "RESOURCE_EXCEEDED": { "severity": "medium", "action": "alert" },
+    "CRASH": { "severity": "high", "action": "alert" },
+    "PROTOCOL_VIOLATION": { "severity": "critical", "action": "alert" }
+  }
+}
