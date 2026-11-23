@@ -2,6 +2,34 @@
 
 Target: macOS 13+. Four processes plus an offline pipeline. Only the sensor runs as root and it never interprets file contents.
 
+## Diagram
+
+```mermaid
+flowchart LR
+    K[macOS kernel<br/>Endpoint Security] -->|close, rename,<br/>quarantine xattr| S
+
+    subgraph Mac
+        S["edr-sensor (root)<br/>system extension<br/>stat, xattr, SHA-256 only"]
+        I["edr-inspector<br/>one process per file<br/>no root, no network, no writes"]
+        N["edr-netd (_edrnet)<br/>network only"]
+        U["edr-ui (user)<br/>notifications"]
+        S -- "read-only fd, rules fd" --> I
+        I -- "bounded verdict" --> S
+        S -- "alerts" --> U
+        U -- "acknowledge" --> S
+        N -- "bundle bytes (unparsed)" --> S
+        S -- "telemetry (hashes, metadata)" --> N
+    end
+
+    subgraph CI["Offline rule pipeline"]
+        R[rules/: YARA-X + format schemas] --> T[lint, fixtures,<br/>benign corpus, budgets]
+        T --> B[unsigned bundle]
+        B --> G["sign: release key (KMS)<br/>cert from k-of-n offline roots"]
+    end
+
+    G -->|HTTPS| N
+```
+
 ## Components
 
 | Component | Runs as | Privileges | Parses untrusted bytes |
@@ -60,3 +88,37 @@ ES event -> filter/debounce/open/identity check/quarantine/hash -> cache miss ->
 ## Accepted risks
 
 ES entitlement per distributor (Santa as reference); sandbox_init deprecated (alternative: App Sandbox, no capabilities); sandboxed decoder fidelity differs from Preview, calibrate via benign corpus; telemetry = hashes and metadata only, WhereFroms is a policy option; tamper resistance (AUTH_SIGNAL/AUTH_UNLINK, MDM) later.
+
+## Processes
+
+1. Sensor (`edr-sensor`, root, system extension). Gets file events from
+   Endpoint Security, ignores files without the quarantine flag, debounces,
+   opens the file once, checks it is still the same inode, hashes it, and looks
+   up a verdict cache. On a miss it hands the open file descriptor to an
+   inspector. It never parses file contents.
+2. Inspector (`edr-inspector`). Spawned by the sensor, drops to the
+   `_edrinspect` user, sets hard resource limits and enters a pure-compute
+   sandbox before it gets a job. Stage 1 runs YARA-X and the structural schema
+   checks; stage 2 asks ImageIO to read the image header and decode one frame.
+   A watchdog in the sensor kills it on timeout or memory overuse; a crash or
+   malformed reply is itself a verdict.
+3. netd (`edr-netd`, `_edrnet`). Downloads signed rule bundles and uploads
+   telemetry. It passes bundle bytes to the sensor without parsing them.
+4. ui (`edr-ui`, per user). Shows notifications and lets the user
+   acknowledge alerts through a short allowlist of commands.
+5. Host app (`EDRHost`). Activates the system extension and registers netd
+   and ui with `SMAppService`.
+
+## Source layout
+
+| Path | What |
+| --- | --- |
+| `core/edr-core` | Rule bundles (format, signatures, verification), schema language, scan engine over YARA-X |
+| `core/edr-ffi` | C ABI used from Swift ([`edr_core.h`](core/edr-ffi/include/edr_core.h)) |
+| `core/edr-rulec` | Rule CLI: lint, test, compile, keys, certificates, sign, verify, scan |
+| `core/fuzz` | cargo-fuzz targets |
+| `rules/` | Rules, schemas, policy, fixtures and benign corpus |
+| `macos/Sources/EDRCore`, `EDRRules` | Platform-independent Swift logic and the rules wrapper |
+| `macos/Sources/EDRPlatform` | XPC, code-signing identity and configuration helpers |
+| `macos/Sources/edr-sensor`, `edr-inspector`, `edr-netd`, `edr-ui`, `EDRHost` | The processes above |
+| `macos/project.yml`, `macos/Config` | XcodeGen project, identity, Info.plists, entitlements, launchd templates |
