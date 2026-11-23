@@ -105,7 +105,8 @@ func syncRules(_ cfg: NetdConfig, _ client: SensorClient, _ state: RulesState) a
         if reply.value("ok") == .bool(true) {
             log.notice("sensor accepted rule bundle \(digest.description, privacy: .public)")
         } else {
-            log.error("sensor rejected rule bundle: \(try reply.string("error"), privacy: .public)")
+            let reason = try reply.string("error")
+            log.error("sensor rejected rule bundle: \(reason, privacy: .public)")
         }
     } catch {
         log.error("rule sync failed: \(String(describing: error), privacy: .public)")
