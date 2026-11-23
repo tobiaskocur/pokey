@@ -53,3 +53,15 @@ public struct ConfigError: Error, CustomStringConvertible {
 public func logger(_ category: String) -> Logger {
     Logger(subsystem: Bundle.main.bundleIdentifier ?? "edr", category: category)
 }
+
+/// Info.plist values filled from build settings arrive as strings
+/// (`$(EDR_ROOT_THRESHOLD)`); accept both native and string forms.
+public func plistInt(_ info: [String: Any], _ key: String) -> Int? {
+    if let n = info[key] as? Int { return n }
+    return (info[key] as? String).flatMap { Int($0) }
+}
+
+public func plistBool(_ info: [String: Any], _ key: String) -> Bool {
+    if let b = info[key] as? Bool { return b }
+    return ["YES", "yes", "true", "1"].contains(info[key] as? String ?? "")
+}

@@ -1,0 +1,96 @@
+# Two-stage rule release. `build` compiles and tests an unsigned bundle with no
+# secrets. `sign` runs only in the `rules-release` environment, which must be
+# configured with two required reviewers and holds the release-key signer
+# (HSM/KMS) and the release certificate signed offline by k-of-n roots.
+name: release-rules
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Monotonic bundle version (must exceed the deployed one)
+        required: true
+      channel:
+        description: stable or canary
+        required: true
+        default: canary
+      expires_days:
+        description: Days until the bundle expires
+        required: true
+        default: "30"
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.93.1
+      - name: Validate inputs
+        env:
+          VERSION: ${{ inputs.version }}
+          CHANNEL: ${{ inputs.channel }}
+          DAYS: ${{ inputs.expires_days }}
+        run: |
+          case "$VERSION" in ''|*[!0-9]*) echo "version must be a number" >&2; exit 1;; esac
+          case "$CHANNEL" in stable|canary) ;; *) echo "bad channel" >&2; exit 1;; esac
+          case "$DAYS" in ''|*[!0-9]*) echo "expires_days must be a number" >&2; exit 1;; esac
+      - name: Test and compile
+        env:
+          VERSION: ${{ inputs.version }}
+          CHANNEL: ${{ inputs.channel }}
+          DAYS: ${{ inputs.expires_days }}
+        run: |
+          cargo build --release --locked -p edr-rulec --manifest-path core/Cargo.toml
+          R=core/target/release/edr-rulec
+          $R lint --rules rules --deny-warnings
+          $R test --rules rules --benign rules/benign --max-ms 50 --max-fuel-pct 50
+          $R compile --rules rules --version "$VERSION" --channel "$CHANNEL" --expires-days "$DAYS" --out unsigned.bundle
+          sha256sum unsigned.bundle | tee unsigned.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-bundle
+          path: |
+            unsigned.bundle
+            unsigned.sha256
+          retention-days: 7
+  sign:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment: rules-release
+    permissions:
+      contents: write
+      id-token: write # OIDC to the KMS that holds the release key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.93.1
+      - uses: actions/download-artifact@v4
+        with:
+          name: unsigned-bundle
+      - name: Sign with the release key and verify against the pinned roots
+        env:
+          # Command that reads the message on stdin and prints the Ed25519
+          # signature, e.g. a Cloud KMS EC_SIGN_ED25519 wrapper (see README).
+          SIGNER_CMD: ${{ vars.RULES_SIGNER_CMD }}
+          RELEASE_CERT_B64: ${{ vars.RULES_RELEASE_CERT_B64 }}
+          ROOT_THRESHOLD: ${{ vars.RULES_ROOT_THRESHOLD }}
+          VERSION: ${{ inputs.version }}
+          CHANNEL: ${{ inputs.channel }}
+        run: |
+          sha256sum -c unsigned.sha256
+          cargo build --release --locked -p edr-rulec --manifest-path core/Cargo.toml
+          R=core/target/release/edr-rulec
+          echo "$RELEASE_CERT_B64" | base64 -d > release.cert
+          $R cert-show --cert release.cert
+          $R sign --in unsigned.bundle --cert release.cert --signer-cmd "$SIGNER_CMD" --out "rules-$VERSION.bundle"
+          $R verify --bundle "rules-$VERSION.bundle" --roots macos/Config/trust-roots.txt \
+            --threshold "$ROOT_THRESHOLD" --self-test
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          CHANNEL: ${{ inputs.channel }}
+        run: |
+          flag=""
+          [ "$CHANNEL" = canary ] && flag="--prerelease"
+          gh release create "rules-$VERSION" "rules-$VERSION.bundle" $flag \
+            --title "Rules $VERSION ($CHANNEL)" --notes "Signed rule bundle $VERSION for the $CHANNEL channel."

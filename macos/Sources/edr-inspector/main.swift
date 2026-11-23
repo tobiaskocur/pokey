@@ -213,7 +213,8 @@ applyLimits()
 
 let connQueue = DispatchQueue(label: "edr.inspector.xpc")
 let work = DispatchQueue(label: "edr.inspector.work")
-let conn = xpc_connection_create_mach_service(config.sensorMachService, connQueue, 0)
+let conn = xpc_connection_create_mach_service(config.sensorMachService, connQueue,
+                                              UInt64(XPC_CONNECTION_MACH_SERVICE_PRIVILEGED))
 guard xpc_connection_set_peer_code_signing_requirement(conn, config.requirement(.sensor)) == 0 else {
     die("peer requirement")
 }

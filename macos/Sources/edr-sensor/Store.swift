@@ -94,9 +94,9 @@ final class Store {
             SELECT id, time, path, outcome, severity, detail FROM events
             WHERE action >= 2 AND acked = 0 ORDER BY id DESC LIMIT ?
             """, [.int(Int64(limit))]) {
-            Value.dict(["id": .uint(UInt64($0.int(0))), "time": .int($0.int(1)), "path": .string(String($0.text(2).prefix(512))),
+            Value.dict(["id": .uint(UInt64($0.int(0))), "time": .int($0.int(1)), "path": .string($0.text(2).truncated(toUTF8: MessageLimits.maxString)),
                         "outcome": .string($0.text(3)), "severity": .uint(UInt64($0.int(4))),
-                        "detail": .string(String($0.text(5).prefix(256)))])
+                        "detail": .string($0.text(5).truncated(toUTF8: 256))])
         }
     }
 

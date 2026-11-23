@@ -51,11 +51,11 @@ final class Sensor {
 
         let info = Bundle.main.infoDictionary ?? [:]
         guard let rootsURL = Bundle.main.url(forResource: "trust-roots", withExtension: "txt"),
-              let threshold = info["EDRRootThreshold"] as? Int, threshold > 0
+              let threshold = plistInt(info, "EDRRootThreshold"), threshold > 0
         else { throw ConfigError("trust-roots.txt or EDRRootThreshold missing from the sensor bundle") }
         anchors = try TrustAnchors(text: String(contentsOf: rootsURL, encoding: .utf8), threshold: threshold)
         guard anchors.roots.count >= threshold else { throw ConfigError("fewer root keys than the threshold") }
-        telemetryWhereFroms = info["EDRTelemetryWhereFroms"] as? Bool ?? false
+        telemetryWhereFroms = plistBool(info, "EDRTelemetryWhereFroms")
 
         guard let inspector = Bundle.main.url(forAuxiliaryExecutable: "edr-inspector") else {
             throw ConfigError("edr-inspector missing from the sensor bundle")
@@ -347,7 +347,7 @@ final class Sensor {
         case .bundle(let bytes):
             guard xpc_dictionary_create_reply(msg) != nil else { throw ProtocolError("bundle expects a reply") }
             activate(bytes) { [unowned self] error in
-                try? send(conn, replyTo: msg, ["ok": .bool(error == nil), "error": .string(String((error ?? "").prefix(512)))])
+                try? send(conn, replyTo: msg, ["ok": .bool(error == nil), "error": .string((error ?? "").truncated(toUTF8: 512))])
             }
         case .telemetryPull(let max):
             let t = try store.telemetry(max: max)

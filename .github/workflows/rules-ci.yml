@@ -1,0 +1,46 @@
+# Rule changes must lint, pass their fixtures, the benign corpus and the
+# performance budget on the current engine (N) and on the previous engine
+# release (N-1, latest `engine-v*` tag), which deployed sensors may still run.
+name: rules
+on:
+  pull_request:
+    paths: ["rules/**", "core/**", ".github/workflows/rules-ci.yml"]
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [current, previous]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@1.93.1
+      - name: Select engine source
+        id: engine
+        run: |
+          if [ "${{ matrix.engine }}" = current ]; then
+            echo "dir=core" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          tag=$(git tag --list 'engine-v*' --sort=-v:refname | head -n1)
+          if [ -z "$tag" ]; then
+            echo "::notice::no engine-v* release tag yet; N-1 check skipped"
+            echo "dir=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git worktree add "$RUNNER_TEMP/prev" "$tag"
+          echo "dir=$RUNNER_TEMP/prev/core" >> "$GITHUB_OUTPUT"
+      - name: Lint, fixtures, benign corpus, budgets
+        if: steps.engine.outputs.dir != ''
+        run: |
+          cargo build --release --locked -p edr-rulec --manifest-path "${{ steps.engine.outputs.dir }}/Cargo.toml"
+          RULEC="${{ steps.engine.outputs.dir }}/target/release/edr-rulec"
+          "$RULEC" lint --rules rules --deny-warnings
+          "$RULEC" test --rules rules --benign rules/benign --max-ms 50 --max-fuel-pct 50
+          "$RULEC" compile --rules rules --version 1 --channel canary --expires-days 1 --out "$RUNNER_TEMP/unsigned"

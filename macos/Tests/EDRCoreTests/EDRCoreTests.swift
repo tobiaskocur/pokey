@@ -325,3 +325,15 @@ final class NetdProtocolTests: XCTestCase {
         XCTAssertTrue(json.contains("\"outcome\":\"CLEAN\""))
     }
 }
+
+final class TruncationTests: XCTestCase {
+    func testKeepsWholeCharactersWithinByteLimit() {
+        XCTAssertEqual("abc".truncated(toUTF8: 5), "abc")
+        XCTAssertEqual("abcdef".truncated(toUTF8: 3), "abc")
+        // "é" is 2 bytes and "👍🏽" one 8-byte character: never split.
+        XCTAssertEqual("aé".truncated(toUTF8: 2), "a")
+        XCTAssertEqual("x👍🏽".truncated(toUTF8: 8), "x")
+        let long = String(repeating: "ž", count: 600)
+        XCTAssertEqual(long.truncated(toUTF8: 1024).utf8.count, 1024)
+    }
+}

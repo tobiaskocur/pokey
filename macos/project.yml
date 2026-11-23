@@ -1,0 +1,163 @@
+# XcodeGen spec: `make xcode` (needs xcodegen, Xcode 15+, and the Rust static
+# library from `make core`). Identity comes from Config/Identity.xcconfig.
+#
+# EDRAgent.app (host, /Applications)
+#   Contents/MacOS/EDRAgent             host UI: installs the pieces below
+#   Contents/MacOS/edr-netd             LaunchDaemon as _edrnet (reads host Info.plist)
+#   Contents/Helpers/EDR Alerts.app     per-user LaunchAgent (notifications)
+#   Contents/Library/LaunchDaemons/netd.plist, LaunchAgents/ui.plist (rendered)
+#   Contents/Library/SystemExtensions/<prefix>.sensor.systemextension
+#     Contents/MacOS/edr-sensor, Contents/MacOS/edr-inspector, Resources/trust-roots.txt
+name: EDRAgent
+options:
+  deploymentTarget:
+    macOS: "13.0"
+  createIntermediateGroups: true
+configFiles:
+  Debug: Config/Identity.xcconfig
+  Release: Config/Identity.xcconfig
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ARCHS: "arm64 x86_64"
+    ONLY_ACTIVE_ARCH: NO
+    ENABLE_HARDENED_RUNTIME: YES
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "Developer ID Application"
+    DEVELOPMENT_TEAM: $(EDR_TEAM_ID)
+    OTHER_CODE_SIGN_FLAGS: "--timestamp"
+    CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
+    SWIFT_INCLUDE_PATHS: $(SRCROOT)/Sources/CEDRCore
+    LIBRARY_SEARCH_PATHS: $(SRCROOT)/../core/target/swift
+    DEAD_CODE_STRIPPING: YES
+    SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
+
+targetTemplates:
+  Tool:
+    type: tool
+    platform: macOS
+    settings:
+      SKIP_INSTALL: YES
+      CODE_SIGN_ENTITLEMENTS: Config/None.entitlements
+      # Tools have no Info.plist: sign with the identifier the peers pin.
+      OTHER_CODE_SIGN_FLAGS: "--timestamp -i $(PRODUCT_BUNDLE_IDENTIFIER)"
+
+targets:
+  EDRCore:
+    type: library.static
+    platform: macOS
+    sources: [Sources/EDRCore]
+
+  EDRRules:
+    type: library.static
+    platform: macOS
+    sources: [Sources/EDRRules]
+    dependencies:
+      - target: EDRCore
+
+  EDRPlatform:
+    type: library.static
+    platform: macOS
+    sources: [Sources/EDRPlatform]
+    dependencies:
+      - target: EDRCore
+
+  edr-inspector:
+    templates: [Tool]
+    sources: [Sources/edr-inspector]
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: $(EDR_BUNDLE_PREFIX).inspector
+      OTHER_LDFLAGS: -ledr_ffi
+    dependencies:
+      - target: EDRCore
+      - target: EDRRules
+      - target: EDRPlatform
+
+  edr-netd:
+    templates: [Tool]
+    sources: [Sources/edr-netd]
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: $(EDR_BUNDLE_PREFIX).netd
+    dependencies:
+      - target: EDRCore
+      - target: EDRPlatform
+
+  edr-sensor:
+    type: system-extension
+    platform: macOS
+    sources:
+      - Sources/edr-sensor
+      - path: Config/trust-roots.txt
+        buildPhase: resources
+    settings:
+      PRODUCT_NAME: $(EDR_BUNDLE_PREFIX).sensor
+      PRODUCT_BUNDLE_IDENTIFIER: $(EDR_BUNDLE_PREFIX).sensor
+      EXECUTABLE_NAME: edr-sensor
+      INFOPLIST_FILE: Config/Sensor-Info.plist
+      CODE_SIGN_ENTITLEMENTS: Config/Sensor.entitlements
+      PROVISIONING_PROFILE_SPECIFIER: $(EDR_SENSOR_PROFILE)
+      SKIP_INSTALL: YES
+      OTHER_LDFLAGS: -ledr_ffi
+    dependencies:
+      - target: EDRCore
+      - target: EDRRules
+      - target: EDRPlatform
+      - sdk: libEndpointSecurity.tbd
+      - sdk: libbsm.tbd
+      - sdk: libsqlite3.tbd
+      - target: edr-inspector
+        copy:
+          destination: executables
+
+  EDRAlerts:
+    type: application
+    platform: macOS
+    sources: [Sources/edr-ui]
+    settings:
+      PRODUCT_NAME: EDR Alerts
+      PRODUCT_BUNDLE_IDENTIFIER: $(EDR_BUNDLE_PREFIX).ui
+      INFOPLIST_FILE: Config/UI-Info.plist
+      CODE_SIGN_ENTITLEMENTS: Config/None.entitlements
+      SKIP_INSTALL: YES
+    dependencies:
+      - target: EDRCore
+      - target: EDRPlatform
+
+  EDRHost:
+    type: application
+    platform: macOS
+    sources: [Sources/EDRHost]
+    settings:
+      PRODUCT_NAME: EDRAgent
+      PRODUCT_BUNDLE_IDENTIFIER: $(EDR_BUNDLE_PREFIX).host
+      INFOPLIST_FILE: Config/Host-Info.plist
+      CODE_SIGN_ENTITLEMENTS: Config/Host.entitlements
+      PROVISIONING_PROFILE_SPECIFIER: $(EDR_HOST_PROFILE)
+    dependencies:
+      - target: EDRPlatform
+      - target: EDRCore
+      - target: edr-sensor
+      - target: edr-netd
+        copy:
+          destination: executables
+      - target: EDRAlerts
+        copy:
+          destination: wrapper
+          subpath: Contents/Helpers
+    postBuildScripts:
+      - name: Render launchd plists
+        script: '"$SRCROOT/scripts/render-launchd.sh"'
+        inputFiles:
+          - $(SRCROOT)/Config/launchd/netd.plist.in
+          - $(SRCROOT)/Config/launchd/ui.plist.in
+        outputFiles:
+          - $(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Library/LaunchDaemons/netd.plist
+          - $(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Library/LaunchAgents/ui.plist
+
+schemes:
+  EDRHost:
+    build:
+      targets:
+        EDRHost: all

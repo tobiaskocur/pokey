@@ -28,7 +28,7 @@ test: core
 # Signed app bundle with the system extension, daemons and agent.
 xcode: core
 	xcodegen generate --spec project.yml
-	xcodebuild -project EDRAgent.xcodeproj -scheme EDRHost -configuration Release build
+	xcodebuild -project EDRAgent.xcodeproj -scheme EDRHost -configuration Release build $(XCODEBUILD_FLAGS)
 
 clean:
 	rm -rf .build $(LIBDIR)

@@ -1,0 +1,27 @@
+name: macos
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths: ["macos/**", "core/**", ".github/workflows/macos-ci.yml"]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: macos
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.93.1
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+      - name: Swift tests (EDRCore, EDRRules)
+        run: make test
+      - name: SwiftPM build of all macOS targets
+        run: swift build -Xlinker -L../core/target/swift
+      - name: Unsigned Xcode build of the app bundle
+        run: |
+          brew install xcodegen
+          make xcode XCODEBUILD_FLAGS="CODE_SIGNING_ALLOWED=NO"

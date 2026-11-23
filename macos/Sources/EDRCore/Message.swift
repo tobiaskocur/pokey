@@ -98,3 +98,20 @@ public struct Fields {
         guard d[k] == .fd else { throw ProtocolError("\(k): not a file descriptor") }
     }
 }
+
+extension String {
+    /// Longest prefix (whole characters) whose UTF-8 encoding fits `maxBytes`,
+    /// so a reply field never exceeds the peer's `MessageLimits.maxString`.
+    public func truncated(toUTF8 maxBytes: Int) -> String {
+        guard utf8.count > maxBytes else { return self }
+        var n = 0
+        var end = startIndex
+        for i in indices {
+            let w = self[i].utf8.count
+            guard n + w <= maxBytes else { break }
+            n += w
+            end = index(after: i)
+        }
+        return String(self[..<end])
+    }
+}
