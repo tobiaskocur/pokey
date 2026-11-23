@@ -114,7 +114,7 @@ ES entitlement per distributor (Santa as reference); sandbox_init deprecated (al
 | Path | What |
 | --- | --- |
 | `core/edr-core` | Rule bundles (format, signatures, verification), schema language, scan engine over YARA-X |
-| `core/edr-ffi` | C ABI used from Swift ([`edr_core.h`](core/edr-ffi/include/edr_core.h)) |
+| `core/edr-ffi` | C ABI used from Swift ([`edr_core.h`](../core/edr-ffi/include/edr_core.h)) |
 | `core/edr-rulec` | Rule CLI: lint, test, compile, keys, certificates, sign, verify, scan |
 | `core/fuzz` | cargo-fuzz targets |
 | `rules/` | Rules, schemas, policy, fixtures and benign corpus |
