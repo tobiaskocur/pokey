@@ -284,3 +284,44 @@ final class RulesStoreTests: XCTestCase {
         XCTAssertThrowsError(try s.activate(version: 9)) { XCTAssertEqual($0 as? RulesStore.StoreError, .notInstalled(9)) }
     }
 }
+
+final class HealthGateTests: XCTestCase {
+    func testRollbackOnRepeatedInspectorFailures() {
+        var g = HealthGate(version: 8, requiredSuccesses: 3, maxFailures: 2)
+        XCTAssertNil(g.record(.crash, bundleVersion: 8))
+        XCTAssertNil(g.record(.crash, bundleVersion: 7), "other versions ignored")
+        XCTAssertNil(g.record(.staticMatch, bundleVersion: 8))
+        XCTAssertEqual(g.record(.protocolViolation, bundleVersion: 8), .rollback)
+        XCTAssertNil(g.record(.clean, bundleVersion: 8), "decided once")
+    }
+
+    func testHealthyAfterSuccesses() {
+        var g = HealthGate(version: 8, requiredSuccesses: 2, maxFailures: 2)
+        XCTAssertNil(g.record(.timeout, bundleVersion: 8))
+        XCTAssertEqual(g.record(.schemaViolation, bundleVersion: 8), .healthy)
+    }
+}
+
+final class NetdProtocolTests: XCTestCase {
+    func testParse() throws {
+        for m in [NetdMessage.bundle([1, 2, 3]), .telemetryPull(max: 10), .telemetryAck(upTo: 99)] {
+            XCTAssertEqual(try NetdMessage.parse(m.value), m)
+        }
+        let bad: [Value] = [
+            .dict(["type": .string("bundle"), "data": .data([])]),
+            .dict(["type": .string("bundle"), "data": .string("x")]),
+            .dict(["type": .string("telemetry_pull"), "max": .uint(501)]),
+            .dict(["type": .string("telemetry_ack"), "up_to": .int(-1)]),
+            .dict(["type": .string("ack_alert"), "id": .uint(1)]),
+        ]
+        for v in bad { XCTAssertThrowsError(try NetdMessage.parse(v), "\(v)") }
+    }
+
+    func testTelemetryHasNoPath() throws {
+        let r = TelemetryRecord(time: 1, sha256: "ab", size: 2, format: "png", outcome: .clean, severity: 0,
+                                bundleVersion: 7, quarantineAgent: "Safari", whereFroms: nil, hits: [])
+        let json = String(decoding: try JSONEncoder().encode(r), as: UTF8.self)
+        XCTAssertFalse(json.contains("path"))
+        XCTAssertTrue(json.contains("\"outcome\":\"CLEAN\""))
+    }
+}

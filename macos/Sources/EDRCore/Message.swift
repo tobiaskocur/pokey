@@ -78,6 +78,11 @@ public struct Fields {
         return b
     }
 
+    public func bytes(_ k: String, maxCount: Int) throws -> [UInt8] {
+        guard let b = d[k]?.data, !b.isEmpty, b.count <= maxCount else { throw ProtocolError("\(k): bad data") }
+        return b
+    }
+
     public func strings(_ k: String, maxCount: Int, maxBytes: Int) throws -> [String] {
         guard let a = d[k]?.array, a.count <= maxCount else { throw ProtocolError("\(k): bad array") }
         return try a.map {

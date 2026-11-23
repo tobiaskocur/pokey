@@ -16,13 +16,14 @@ var products: [Product] = [.library(name: "EDRCore", targets: ["EDRCore"])]
 
 #if os(macOS)
 targets += [
+    .target(name: "EDRPlatform", dependencies: ["EDRCore"]),
     .executableTarget(
-        name: "edr-sensor", dependencies: ["EDRCore", "EDRRules"],
+        name: "edr-sensor", dependencies: ["EDRCore", "EDRRules", "EDRPlatform"],
         linkerSettings: [.linkedLibrary("EndpointSecurity"), .linkedLibrary("bsm"), .linkedLibrary("sqlite3")]),
-    .executableTarget(name: "edr-inspector", dependencies: ["EDRCore", "EDRRules"]),
-    .executableTarget(name: "edr-netd", dependencies: ["EDRCore"]),
-    .executableTarget(name: "edr-ui", dependencies: ["EDRCore"]),
-    .executableTarget(name: "EDRHost", dependencies: ["EDRCore"]),
+    .executableTarget(name: "edr-inspector", dependencies: ["EDRCore", "EDRRules", "EDRPlatform"]),
+    .executableTarget(name: "edr-netd", dependencies: ["EDRCore", "EDRPlatform"]),
+    .executableTarget(name: "edr-ui", dependencies: ["EDRCore", "EDRPlatform"]),
+    .executableTarget(name: "EDRHost", dependencies: ["EDRCore", "EDRPlatform"]),
 ]
 products += ["edr-sensor", "edr-inspector", "edr-netd", "edr-ui", "EDRHost"].map {
     .executable(name: $0, targets: [$0])

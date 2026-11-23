@@ -11,6 +11,10 @@
 /// job is known. Every inspector message is validated strictly; anything else
 /// is PROTOCOL_VIOLATION.
 public enum InspectorProtocol {
+    /// Unprivileged account the inspector drops to (created by the installer).
+    public static let user = "_edrinspect"
+    /// The spawn pipe carrying the nonce is this descriptor in the inspector.
+    public static let nonceFD: Int32 = 3
     public static let nonceLength = 32
     public static let maxHits = 64
     public static let maxHitBytes = 128
