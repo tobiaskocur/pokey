@@ -25,8 +25,14 @@ public struct EDRConfig: Sendable {
     public var sensorMachService: String { "\(teamID).\(prefix).sensor.xpc" }
 
     /// Code-signing requirement for one of our binaries.
-    public func requirement(_ role: Role) -> String {
-        "anchor apple generic and certificate leaf[subject.OU] = \"\(teamID)\" and identifier \"\(identifier(role))\""
+    public func requirement(_ role: Role) -> String { requirement(anyOf: [role]) }
+
+    /// Requirement satisfied by any of `roles` (Developer ID or Apple-issued
+    /// certificate of our team, exact identifier).
+    public func requirement(anyOf roles: [Role]) -> String {
+        precondition(!roles.isEmpty)
+        let ids = roles.map { "identifier \"\(identifier($0))\"" }.joined(separator: " or ")
+        return "anchor apple generic and certificate leaf[subject.OU] = \"\(teamID)\" and (\(ids))"
     }
 
     /// Root-owned state of the sensor.

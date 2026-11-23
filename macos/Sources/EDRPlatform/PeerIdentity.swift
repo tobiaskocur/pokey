@@ -23,9 +23,11 @@ public enum PeerIdentity {
         return nil
     }
 
-    /// Enforce the requirement on every later message of the connection.
-    public static func pin(_ connection: xpc_connection_t, to role: EDRConfig.Role, config: EDRConfig) -> Bool {
-        xpc_connection_set_peer_code_signing_requirement(connection, config.requirement(role)) == 0
+    /// Enforce the requirement on every message of the connection. Call
+    /// before `xpc_connection_activate`; messages from any other signer are
+    /// dropped by XPC and the connection gets an error.
+    public static func pin(_ connection: xpc_connection_t, to roles: [EDRConfig.Role], config: EDRConfig) -> Bool {
+        xpc_connection_set_peer_code_signing_requirement(connection, config.requirement(anyOf: roles)) == 0
     }
 
     /// UID of the user at the console (nil at the login window).

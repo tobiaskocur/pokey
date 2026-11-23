@@ -4,7 +4,8 @@ public enum UICommand: Equatable, Sendable {
     case listAlerts(limit: Int)
     case ackAlert(id: UInt64)
 
-    public static let maxAlerts = 100
+    /// Fits one reply array (MessageLimits.maxArray).
+    public static let maxAlerts = 50
 
     public static func parse(_ v: Value) throws -> UICommand {
         guard let cmd = v.dict?["cmd"]?.string else { throw ProtocolError("missing cmd") }

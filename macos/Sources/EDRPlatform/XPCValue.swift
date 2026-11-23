@@ -76,4 +76,11 @@ public enum XPCValue {
             preconditionFailure("encode file descriptors with xpc_dictionary_set_fd")
         }
     }
+
+    /// Reply to `message` carrying `fields` (nil if the sender expects none).
+    public static func reply(to message: xpc_object_t, _ fields: [String: Value]) -> xpc_object_t? {
+        guard let r = xpc_dictionary_create_reply(message) else { return nil }
+        for (k, v) in fields { xpc_dictionary_set_value(r, k, encode(v)) }
+        return r
+    }
 }

@@ -73,6 +73,21 @@ final class Store {
         return sqlite3_last_insert_rowid(db)
     }
 
+    /// Alert about the agent itself (stale rules, rollback). Shown by edr-ui
+    /// like any other alert.
+    @discardableResult
+    func addSystemAlert(_ detail: String, bundleVersion: UInt64) throws -> Int64 {
+        try run("""
+            INSERT INTO events(time, path, sha256, outcome, severity, action, bundle_version, detail, hits,
+                               quarantine_agent) VALUES(?,'','','SYSTEM',3,2,?,?,'','')
+            """, [.int(now()), .int(Int64(bitPattern: bundleVersion)), .text(detail)])
+        return sqlite3_last_insert_rowid(db)
+    }
+
+    func openAlertCount() throws -> Int64 {
+        try query("SELECT COUNT(*) FROM events WHERE action >= 2 AND acked = 0") { $0.int(0) }.first ?? 0
+    }
+
     /// Unacknowledged alerts (action >= alert), newest first, for edr-ui.
     func openAlerts(limit: Int) throws -> [Value] {
         try query("""
@@ -97,8 +112,13 @@ final class Store {
         try run("DELETE FROM telemetry WHERE id <= (SELECT MAX(id) FROM telemetry) - ?", [.int(Int64(Self.maxSpool))])
     }
 
-    func telemetry(max: Int) throws -> [(id: Int64, record: String)] {
-        try query("SELECT id, record FROM telemetry ORDER BY id LIMIT ?", [.int(Int64(max))]) { ($0.int(0), $0.text(1)) }
+    /// Oldest records as one JSON array, and the last id included.
+    func telemetry(max: Int) throws -> (upTo: Int64, json: [UInt8])? {
+        let rows = try query("SELECT id, record FROM telemetry ORDER BY id LIMIT ?", [.int(Int64(max))]) {
+            ($0.int(0), $0.text(1))
+        }
+        guard let last = rows.last else { return nil }
+        return (last.0, Array(("[" + rows.map(\.1).joined(separator: ",") + "]").utf8))
     }
 
     func telemetryAck(upTo id: Int64) throws { try run("DELETE FROM telemetry WHERE id <= ?", [.int(id)]) }

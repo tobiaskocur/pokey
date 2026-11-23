@@ -104,22 +104,35 @@ final class InspectorPool {
     }
 
     /// XPCServer calls this for the first message of a connection whose peer
-    /// satisfies the inspector code-signing requirement.
-    func accept(_ conn: xpc_connection_t, first: xpc_object_t) {
+    /// satisfies the inspector code-signing requirement. Only a process we
+    /// spawned, connecting once, is accepted; the nonce is checked in hello.
+    func attach(_ conn: xpc_connection_t) -> Bool {
+        dispatchPrecondition(condition: .onQueue(queue))
         let pid = xpc_connection_get_pid(conn)
         guard let w = workers[pid], w.connection == nil else {
             log.error("inspector connection from unknown pid \(pid)")
+            return false
+        }
+        w.connection = conn
+        return true
+    }
+
+    /// A message on an attached inspector connection.
+    func receive(_ msg: xpc_object_t, on conn: xpc_connection_t) {
+        dispatchPrecondition(condition: .onQueue(queue))
+        guard let w = workers[xpc_connection_get_pid(conn)], w.connection === conn else {
             xpc_connection_cancel(conn)
             return
         }
-        w.connection = conn
-        xpc_connection_set_target_queue(conn, queue)
-        xpc_connection_set_event_handler(conn) { [weak self, weak w] msg in
-            guard let self, let w else { return }
-            if xpc_get_type(msg) == XPC_TYPE_DICTIONARY { self.receive(msg, from: w) }
-        }
-        xpc_connection_activate(conn)
-        receive(first, from: w)
+        receive(msg, from: w)
+    }
+
+    /// The inspector's connection broke; a worker without a connection
+    /// cannot finish, so it is killed (reaped -> PROTOCOL_VIOLATION unless it
+    /// already finished).
+    func disconnected(_ conn: xpc_connection_t) {
+        guard let w = workers[xpc_connection_get_pid(conn)], w.connection === conn else { return }
+        if w.session.state != .done { kill(w.pid, SIGKILL) }
     }
 
     // MARK: internals

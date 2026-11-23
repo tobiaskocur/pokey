@@ -59,6 +59,9 @@ public struct Fields {
 
     public func has(_ k: String) -> Bool { d[k] != nil }
 
+    /// Raw value for nested structures; validate it further.
+    public func value(_ k: String) -> Value? { d[k] }
+
     public func uint(_ k: String, max: UInt64 = .max) throws -> UInt64 {
         guard let v = d[k]?.uint, v <= max else { throw ProtocolError("\(k): bad unsigned") }
         return v

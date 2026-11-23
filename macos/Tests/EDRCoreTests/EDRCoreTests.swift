@@ -209,13 +209,13 @@ final class WatchdogTests: XCTestCase {
 
 final class UICommandTests: XCTestCase {
     func testAllowlist() throws {
-        for c in [UICommand.status, .listAlerts(limit: 100), .ackAlert(id: 5)] {
+        for c in [UICommand.status, .listAlerts(limit: 50), .ackAlert(id: 5)] {
             XCTAssertEqual(try UICommand.parse(c.value), c)
         }
         let bad: [Value] = [
             .dict(["cmd": .string("uninstall")]),
             .dict(["cmd": .string("status"), "path": .string("/etc")]),
-            .dict(["cmd": .string("list_alerts"), "limit": .uint(101)]),
+            .dict(["cmd": .string("list_alerts"), "limit": .uint(51)]),
             .dict(["cmd": .string("list_alerts"), "limit": .uint(0)]),
             .dict(["cmd": .string("ack_alert")]),
             .array([]),
