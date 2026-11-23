@@ -3,15 +3,16 @@
 CORE := $(abspath ../core)
 LIBDIR := $(CORE)/target/swift
 UNAME := $(shell uname)
+# Rust targets for the static library; CI builds only the host architecture.
+CORE_TARGETS ?= aarch64-apple-darwin x86_64-apple-darwin
 
 .PHONY: core build test xcode clean
 core:
 ifeq ($(UNAME),Darwin)
-	cd $(CORE) && cargo build --release -p edr-ffi --target aarch64-apple-darwin --target x86_64-apple-darwin
+	cd $(CORE) && cargo build --release -p edr-ffi $(addprefix --target ,$(CORE_TARGETS))
 	mkdir -p $(LIBDIR)
 	lipo -create -output $(LIBDIR)/libedr_ffi.a \
-		$(CORE)/target/aarch64-apple-darwin/release/libedr_ffi.a \
-		$(CORE)/target/x86_64-apple-darwin/release/libedr_ffi.a
+		$(foreach t,$(CORE_TARGETS),$(CORE)/target/$(t)/release/libedr_ffi.a)
 else
 	cd $(CORE) && cargo build --release -p edr-ffi
 	mkdir -p $(LIBDIR)

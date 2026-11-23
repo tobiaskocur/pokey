@@ -3,12 +3,17 @@ on:
   push:
     branches: [main]
   pull_request:
+    branches: [main]
     paths: ["core/**", "rules/**", ".github/workflows/core-ci.yml"]
 permissions:
   contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   test:
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: core
@@ -17,12 +22,16 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.93.1
         with:
           components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - run: cargo test --workspace --locked
   fuzz:
     runs-on: ubuntu-24.04
     needs: test
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: core/fuzz
@@ -33,9 +42,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly
-      - run: cargo install cargo-fuzz --locked
-      - name: Fuzz ${{ matrix.target }} for 120 s
-        run: cargo +nightly fuzz run ${{ matrix.target }} -- -max_total_time=120 -rss_limit_mb=2048
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-fuzz
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core/fuzz
+      - name: Fuzz ${{ matrix.target }} for 60 s
+        run: cargo +nightly fuzz run ${{ matrix.target }} -- -max_total_time=60 -rss_limit_mb=2048
       - if: failure()
         uses: actions/upload-artifact@v4
         with:

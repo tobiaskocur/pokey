@@ -1,27 +1,41 @@
+# macOS runners cost 10x Linux minutes: run only for main and PRs into main,
+# one job, host architecture only, cancel superseded runs.
 name: macos
 on:
   push:
     branches: [main]
+    paths: ["macos/**", "core/**", "rules/**", ".github/workflows/macos-ci.yml"]
   pull_request:
-    paths: ["macos/**", "core/**", ".github/workflows/macos-ci.yml"]
+    branches: [main]
+    paths: ["macos/**", "core/**", "rules/**", ".github/workflows/macos-ci.yml"]
 permissions:
   contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   build:
     runs-on: macos-15
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: macos
+    env:
+      CORE_TARGETS: aarch64-apple-darwin
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.93.1
         with:
-          targets: aarch64-apple-darwin, x86_64-apple-darwin
+          targets: aarch64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+      - run: swift --version && xcodebuild -version
       - name: Swift tests (EDRCore, EDRRules)
         run: make test
       - name: SwiftPM build of all macOS targets
-        run: swift build -Xlinker -L../core/target/swift
+        run: make build
       - name: Unsigned Xcode build of the app bundle
         run: |
           brew install xcodegen
-          make xcode XCODEBUILD_FLAGS="CODE_SIGNING_ALLOWED=NO"
+          make xcode XCODEBUILD_FLAGS="CODE_SIGNING_ALLOWED=NO ARCHS=arm64 ONLY_ACTIVE_ARCH=YES"
