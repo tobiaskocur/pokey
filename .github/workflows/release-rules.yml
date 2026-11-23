@@ -78,7 +78,7 @@ jobs:
       - name: Sign with the release key and verify against the pinned roots
         env:
           # Command that reads the message on stdin and prints the Ed25519
-          # signature, e.g. a Cloud KMS EC_SIGN_ED25519 wrapper (see README).
+          # signature, e.g. a Cloud KMS EC_SIGN_ED25519 wrapper (see docs/deploying.md).
           SIGNER_CMD: ${{ vars.RULES_SIGNER_CMD }}
           RELEASE_CERT_B64: ${{ vars.RULES_RELEASE_CERT_B64 }}
           ROOT_THRESHOLD: ${{ vars.RULES_ROOT_THRESHOLD }}

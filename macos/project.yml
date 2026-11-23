@@ -1,4 +1,4 @@
-# XcodeGen spec: `make xcode` (needs xcodegen, Xcode 15+, and the Rust static
+# XcodeGen spec: `make xcode` (needs xcodegen, Xcode 16+, and the Rust static
 # library from `make core`). Identity comes from Config/Identity.xcconfig.
 #
 # EDRAgent.app (host, /Applications)
