@@ -1,5 +1,21 @@
 # Security model
 
+## What it is for
+
+The agent watches files that arrive from the internet (anything carrying the
+`com.apple.quarantine` flag), checks them in a throwaway sandboxed process
+against signed rules, and tells the user when a file looks wrong, for example a
+PNG with a Mach-O binary appended to its end or an image whose structure would
+trip up a decoder.
+
+Image and document parsers are a common way into a Mac. Many endpoint tools
+either trust the OS decoder or parse untrusted bytes inside a privileged
+process. Here the only root process never reads file contents. Parsing happens
+in a short-lived process that has dropped root, has no network, cannot write
+files and is killed if it runs too long or uses too much memory.
+
+## Properties
+
 - One root process, no parsing in it. The sensor's only untrusted inputs
   are inspector replies (strict, size-bounded schema), bundle bytes from netd
   (signatures checked over raw bytes before anything is parsed) and allowlisted

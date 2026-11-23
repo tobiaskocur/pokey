@@ -269,7 +269,7 @@ final class Sensor {
     }
 
     /// Apply the bundle policy. The QUARANTINE action is reported like ALERT;
-    /// moving files into a vault is not implemented (see README).
+    /// moving files into a vault is not implemented (see docs/deploying.md#status).
     private func record(_ c: Candidate, outcome: Outcome, format: String, hits: [String], detail: String,
                         bundle: RuleBundle, telemetry: Bool) {
         let (severity, action) = bundle.action(for: outcome)

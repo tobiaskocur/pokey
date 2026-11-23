@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 # Terminal demo for the README (recorded into docs/assets/rule-pipeline.gif).
+# It shows the rule pipeline: two offline roots certify a release key, rules
+# are tested and signed, one flipped byte makes the bundle invalid, and a PNG
+# with an appended Mach-O is flagged while a clean PNG passes.
 # Throwaway keys in a temp dir; nothing here is a real identity.
 set -eu
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)

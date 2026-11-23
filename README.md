@@ -8,7 +8,7 @@ A macOS agent that scans files downloaded from the internet in a sandboxed proce
 
 ![edr-rulec: certify a release key, test, compile, sign, verify and scan](docs/assets/rule-pipeline.gif)
 
-Status: early. Every target builds and the tests pass in CI on Linux and macOS, but nothing has run on a real Mac with the Endpoint Security entitlement yet.
+Status: early. Every target builds and the tests pass in CI on Linux and macOS, but nothing has run on a real Mac with the Endpoint Security entitlement yet. Details and known gaps: [docs/deploying.md](docs/deploying.md#status).
 
 ## Components
 
@@ -55,6 +55,7 @@ Signing with your own team ID and Endpoint Security entitlement is described in 
 `edr-rulec` lints, tests, compiles, signs and runs the rules in [`rules/`](rules):
 
 ```sh
+# from the repo root
 R=core/target/release/edr-rulec
 $R lint --rules rules --deny-warnings
 $R test --rules rules --benign rules/benign --max-ms 50 --max-fuel-pct 50
@@ -69,4 +70,5 @@ Run `edr-rulec` with no arguments to list the key, certificate, signing and veri
 - [Architecture](docs/architecture.md): processes, IPC, data flow, source layout
 - [Security model](docs/security-model.md)
 - [Rule pipeline](docs/rule-pipeline.md): CI checks, signing, rule updates
+- [Development](docs/development.md): checks CI runs, to run before a pull request
 - [Deploying](docs/deploying.md): identity, entitlements, rule releases, current status
