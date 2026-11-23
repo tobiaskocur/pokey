@@ -17,14 +17,19 @@ on:
         description: Days until the bundle expires
         required: true
         default: "30"
-permissions:
-  contents: read
+permissions: {}
 jobs:
   build:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.93.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master
+        with:
+          toolchain: 1.95.0
       - name: Validate inputs
         env:
           VERSION: ${{ inputs.version }}
@@ -46,7 +51,7 @@ jobs:
           $R test --rules rules --benign rules/benign --max-ms 50 --max-fuel-pct 50
           $R compile --rules rules --version "$VERSION" --channel "$CHANNEL" --expires-days "$DAYS" --out unsigned.bundle
           sha256sum unsigned.bundle | tee unsigned.sha256
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: unsigned-bundle
           path: |
@@ -61,9 +66,13 @@ jobs:
       contents: write
       id-token: write # OIDC to the KMS that holds the release key
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.93.1
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master
+        with:
+          toolchain: 1.95.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: unsigned-bundle
       - name: Require a configured signer

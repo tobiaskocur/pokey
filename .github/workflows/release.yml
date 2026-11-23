@@ -1,0 +1,253 @@
+# App releases. On every push to main, release-please opens or updates a
+# release PR from the conventional commit titles. Merging that PR tags vX.Y.Z,
+# publishes the GitHub release and builds its assets in the jobs below.
+#
+# Run it by hand (workflow_dispatch) for a dry run: every asset is built,
+# checksummed and attested, and kept as a workflow artifact; nothing is
+# published.
+#
+# Rule bundles are released separately by release-rules.yml.
+name: release
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  release-please:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.rp.outputs.release_created }}
+      tag_name: ${{ steps.rp.outputs.tag_name }}
+      pr_branch: ${{ steps.rp.outputs.pr && fromJSON(steps.rp.outputs.pr).headBranchName || '' }}
+    steps:
+      - id: rp
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # release-please bumps core/Cargo.toml but cannot edit Cargo.lock, so the
+  # release PR would fail `--locked`. Refresh the workspace entries on its branch.
+  lockfile:
+    needs: release-please
+    if: needs.release-please.outputs.pr_branch != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.release-please.outputs.pr_branch }}
+          persist-credentials: true # pushes the lockfile commit below
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master
+        with:
+          toolchain: 1.95.0
+      - name: Update the workspace versions in Cargo.lock
+        run: |
+          cargo update --workspace --manifest-path core/Cargo.toml
+          cargo update --manifest-path core/fuzz/Cargo.toml -p pokey-core
+          if git diff --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore: update Cargo.lock for the release"
+          git push
+
+  rulec-linux:
+    needs: release-please
+    if: always() && (github.event_name == 'workflow_dispatch' || needs.release-please.outputs.release_created == 'true')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: true
+      matrix:
+        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu]
+    env:
+      TARGET: ${{ matrix.target }}
+      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+      CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name || github.sha }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master
+        with:
+          toolchain: 1.95.0
+          targets: ${{ matrix.target }}
+      - name: Cross linker
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu
+      - name: Build pokey-rulec
+        run: |
+          cargo build --release --locked -p pokey-rulec --manifest-path core/Cargo.toml --target "$TARGET"
+          mkdir -p dist
+          tar -C "core/target/$TARGET/release" -czf "dist/pokey-rulec-$TARGET.tar.gz" pokey-rulec
+      - name: Smoke test
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: core/target/x86_64-unknown-linux-gnu/release/pokey-rulec --version
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist-rulec-${{ matrix.target }}
+          path: dist/
+          retention-days: 7
+
+  macos:
+    needs: release-please
+    if: always() && (github.event_name == 'workflow_dispatch' || needs.release-please.outputs.release_created == 'true')
+    runs-on: macos-15
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name || github.sha }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master
+        with:
+          toolchain: 1.95.0
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+      - name: Universal pokey-rulec
+        run: |
+          cd core
+          for t in aarch64-apple-darwin x86_64-apple-darwin; do
+            cargo build --release --locked -p pokey-rulec --target "$t"
+          done
+          mkdir -p ../dist ../build
+          lipo -create -output ../build/pokey-rulec \
+            target/aarch64-apple-darwin/release/pokey-rulec target/x86_64-apple-darwin/release/pokey-rulec
+          lipo -info ../build/pokey-rulec
+          ../build/pokey-rulec --version
+          tar -C ../build -czf ../dist/pokey-rulec-universal-apple-darwin.tar.gz pokey-rulec
+      - name: Unsigned app bundle (development only)
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          brew install xcodegen
+          cd macos
+          make xcode XCODEBUILD_FLAGS="CODE_SIGNING_ALLOWED=NO CURRENT_PROJECT_VERSION=$BUILD_NUMBER SYMROOT=$PWD/build"
+          app=build/Release/Pokey.app
+          lipo -info "$app/Contents/MacOS/Pokey"
+          version=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$app/Contents/Info.plist")
+          ditto -c -k --keepParent "$app" "../dist/Pokey-$version-unsigned-dev-only.zip"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist-macos
+          path: dist/
+          retention-days: 7
+
+  publish:
+    needs: [release-please, rulec-linux, macos]
+    if: always() && needs.rulec-linux.result == 'success' && needs.macos.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write # upload release assets
+      id-token: write # sign the provenance attestation
+      attestations: write
+    env:
+      TAG: ${{ needs.release-please.outputs.tag_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name || github.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+      - name: SBOM of the Rust workspace
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          path: core
+          format: spdx-json
+          output-file: dist/pokey.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+      - name: Checksums
+        run: |
+          cd dist
+          sha256sum -- * > SHA256SUMS
+          cat SHA256SUMS
+      - name: Build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-checksums: dist/SHA256SUMS
+      - name: Keep the dry-run assets
+        if: env.TAG == ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-dry-run
+          path: dist/
+          retention-days: 14
+      - name: Upload to the release
+        if: env.TAG != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" dist/* --clobber
+
+  # Developer ID signing and notarization of the macOS pokey-rulec binary.
+  # Runs only when the `release` environment is configured (see CONTRIBUTING.md).
+  # The app bundle also needs Endpoint Security provisioning profiles and is
+  # signed by the deployer (docs/deploying.md).
+  notarize-rulec:
+    needs: [release-please, publish]
+    if: needs.release-please.outputs.release_created == 'true' && vars.APPLE_SIGNING == 'enabled'
+    runs-on: macos-15
+    timeout-minutes: 30
+    environment: release
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ needs.release-please.outputs.tag_name }}
+    steps:
+      - name: Download the universal binary
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh release download "$TAG" -R "$REPO" -p pokey-rulec-universal-apple-darwin.tar.gz
+          tar xzf pokey-rulec-universal-apple-darwin.tar.gz
+      - name: Sign and notarize
+        env:
+          CERT_P12_B64: ${{ secrets.APPLE_DEVELOPER_ID_P12_B64 }}
+          CERT_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
+          NOTARY_KEY_B64: ${{ secrets.APPLE_NOTARY_KEY_P8_B64 }}
+          NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          NOTARY_ISSUER: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+        run: |
+          kc="$RUNNER_TEMP/signing.keychain-db"; kcpw=$(uuidgen)
+          security create-keychain -p "$kcpw" "$kc"
+          security set-keychain-settings -lut 900 "$kc"
+          security unlock-keychain -p "$kcpw" "$kc"
+          echo "$CERT_P12_B64" | base64 -d > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$kc" -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -k "$kcpw" "$kc"
+          security list-keychains -d user -s "$kc"
+          codesign --force --timestamp --options runtime --keychain "$kc" \
+            --sign "Developer ID Application" --identifier sk.tobiaskocur.pokey.rulec pokey-rulec
+          echo "$NOTARY_KEY_B64" | base64 -d > "$RUNNER_TEMP/notary.p8"
+          ditto -c -k pokey-rulec pokey-rulec.zip
+          xcrun notarytool submit pokey-rulec.zip --wait --team-id "$TEAM_ID" \
+            --key "$RUNNER_TEMP/notary.p8" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER"
+          tar -czf pokey-rulec-universal-apple-darwin-signed.tar.gz pokey-rulec
+          shasum -a 256 pokey-rulec-universal-apple-darwin-signed.tar.gz > SHA256SUMS-signed
+      - name: Upload the signed binary
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: gh release upload "$TAG" -R "$REPO" pokey-rulec-universal-apple-darwin-signed.tar.gz SHA256SUMS-signed --clobber

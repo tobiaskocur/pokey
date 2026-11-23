@@ -6,7 +6,7 @@ with expected outcomes and a benign corpus that must scan clean.
 
 | Step | Where | What it checks |
 | --- | --- | --- |
-| Lint and compile | `rules` workflow, every PR | Rules compile on the current engine and on the previous engine release (`engine-v*` tag), which deployed sensors may still run |
+| Lint and compile | `rules` workflow, every PR | Rules compile on the current engine and on the previous engine release (latest `vX.Y.Z` tag), which deployed sensors may still run |
 | Fixtures | same | Each fixture produces its expected outcome and rule |
 | False-positive gate | same | Every file in `rules/benign` scans `CLEAN` |
 | Budgets | same | Per-file scan time and interpreter fuel stay under limits |
