@@ -4,14 +4,20 @@
 name: rules
 on:
   pull_request:
+    branches: [main]
     paths: ["rules/**", "core/**", ".github/workflows/rules-ci.yml"]
   push:
     branches: [main]
+    paths: ["rules/**", "core/**", ".github/workflows/rules-ci.yml"]
 permissions:
   contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   test:
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:

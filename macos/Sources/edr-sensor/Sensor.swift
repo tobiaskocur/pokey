@@ -361,7 +361,7 @@ final class Sensor {
     private func handleUI(_ conn: xpc_connection_t, _ msg: xpc_object_t) throws {
         switch try UICommand.parse(XPCValue.decode(msg)) {
         case .status:
-            let stats = es?.stats ?? (0, 0)
+            let stats = es?.stats ?? (dropped: 0, lost: 0)
             try send(conn, replyTo: msg, [
                 "rules_version": .uint(bundle?.info.version ?? 0),
                 "rules_expired": .bool(bundle.map { now() >= $0.info.expires } ?? false),

@@ -66,6 +66,15 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: unsigned-bundle
+      - name: Require a configured signer
+        env:
+          SIGNER_CMD: ${{ vars.RULES_SIGNER_CMD }}
+          RELEASE_CERT_B64: ${{ vars.RULES_RELEASE_CERT_B64 }}
+        run: |
+          if [ -z "$SIGNER_CMD" ] || [ -z "$RELEASE_CERT_B64" ]; then
+            echo "::error::rules-release environment has no signer or release certificate configured"
+            exit 1
+          fi
       - name: Sign with the release key and verify against the pinned roots
         env:
           # Command that reads the message on stdin and prints the Ed25519
