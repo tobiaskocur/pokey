@@ -10,7 +10,7 @@ repository.workspace = true
 [dependencies]
 pokey-core = { path = "../pokey-core" }
 ed25519-dalek.workspace = true
-rand_core.workspace = true
+getrandom.workspace = true
 hex.workspace = true
 serde.workspace = true
 serde_json.workspace = true

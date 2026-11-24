@@ -406,3 +406,27 @@ fn certificate_encoding_round_trips() {
         BundleError::MalformedSignatureBlock
     );
 }
+
+/// Pins the Ed25519 library to RFC 8032 (section 7.1, test 1) so a dependency
+/// upgrade cannot silently change key derivation or signatures: bundles signed
+/// by an older engine must still verify, and the reverse.
+#[test]
+fn ed25519_matches_rfc8032_test_vector() {
+    let seed: [u8; 32] =
+        hex::decode("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
+            .unwrap()
+            .try_into()
+            .unwrap();
+    let want_sig = hex::decode(
+        "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b",
+    )
+    .unwrap();
+    let k = SigningKey::from_bytes(&seed);
+    assert_eq!(
+        hex::encode(k.verifying_key().to_bytes()),
+        "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
+    );
+    let sig = k.sign(b"");
+    assert_eq!(sig.to_bytes().as_slice(), want_sig.as_slice());
+    k.verifying_key().verify_strict(b"", &sig).unwrap();
+}

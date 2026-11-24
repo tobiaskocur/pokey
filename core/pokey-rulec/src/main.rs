@@ -241,7 +241,11 @@ fn scan(argv: &[String]) -> Result<(), Error> {
 fn keygen(argv: &[String]) -> Result<(), Error> {
     let a = Args::parse(argv, &[])?;
     let prefix = a.req("out")?;
-    let key = SigningKey::generate(&mut rand_core::OsRng);
+    // Same as SigningKey::generate: a 32-byte seed from the OS CSPRNG (RFC 8032 secret key).
+    let mut seed = [0u8; 32];
+    getrandom::fill(&mut seed).map_err(|e| format!("os random source: {e}"))?;
+    let key = SigningKey::from_bytes(&seed);
+    seed.fill(0);
     let key_path = format!("{prefix}.key");
     let mut opts = fs::OpenOptions::new();
     opts.write(true).create_new(true);
