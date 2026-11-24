@@ -11,7 +11,7 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 pokey-core = { path = "../pokey-core" }
-ed25519-dalek = "2.1"
+ed25519-dalek = "3.0"
 
 # Not part of the core workspace: needs nightly and cargo-fuzz.
 [workspace]
