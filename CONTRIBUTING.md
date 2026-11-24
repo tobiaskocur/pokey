@@ -4,6 +4,8 @@
 
 Run the checks in [docs/development.md](docs/development.md). CI runs the same ones.
 
+New behaviour comes with a test in the same pull request (Rust: `cargo test`, Swift: `make test`, rules: a fixture and an entry in `rules/tests.json`). A bug fix starts with a test that fails without the fix. The pull request template asks how it was tested.
+
 ## Pull requests
 
 Pull requests are squash-merged. The pull request title becomes the commit message on `main` and the changelog entry, so it must follow [Conventional Commits](https://www.conventionalcommits.org/):
