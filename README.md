@@ -7,6 +7,7 @@
 
 A macOS agent that scans files downloaded from the internet in a sandboxed process against signed YARA-X and file-format rules.
 
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/17080/badge)](https://www.bestpractices.dev/projects/17080)
 [![core](https://github.com/tobiaskocur/pokey/actions/workflows/core-ci.yml/badge.svg)](https://github.com/tobiaskocur/pokey/actions/workflows/core-ci.yml)
 [![rules](https://github.com/tobiaskocur/pokey/actions/workflows/rules-ci.yml/badge.svg)](https://github.com/tobiaskocur/pokey/actions/workflows/rules-ci.yml)
 [![macos](https://github.com/tobiaskocur/pokey/actions/workflows/macos-ci.yml/badge.svg)](https://github.com/tobiaskocur/pokey/actions/workflows/macos-ci.yml)
