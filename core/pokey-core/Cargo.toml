@@ -18,5 +18,3 @@ hex.workspace = true
 thiserror.workspace = true
 yara-x.workspace = true
 
-[dev-dependencies]
-rand_core.workspace = true
