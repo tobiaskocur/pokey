@@ -8,9 +8,12 @@ updates:
       default-days: 7
     commit-message:
       prefix: deps
+    # One PR per crate covering both directories. core/fuzz uses pokey-core by
+    # path, so a bump in only one directory leaves the other lockfile stale and
+    # `cargo deny --locked` fails.
     groups:
       cargo:
-        update-types: [minor, patch]
+        group-by: dependency-name
   - package-ecosystem: github-actions
     directory: /
     schedule:
