@@ -40,8 +40,6 @@ Rule bundles have their own integer version (`pokey-rulec compile --version`), i
 
 To build every release asset without publishing anything, run the `release` workflow by hand (Actions → release → Run workflow). A pull request that changes `release.yml` or `release-please-config.json` does the same dry run. The assets are kept as the `release-dry-run` workflow artifact.
 
-After the first release, remove `"release-as": "0.1.0"` from `release-please-config.json`; otherwise every release stays at 0.1.0.
-
 ### Signing and notarization
 
 The `notarize-rulec` job signs and notarizes the macOS `pokey-rulec` with a Developer ID. It is skipped unless the repository variable `APPLE_SIGNING` is `enabled`. It runs in the `release` environment and needs:
