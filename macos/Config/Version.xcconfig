@@ -1,0 +1,5 @@
+// App version. release-please keeps MARKETING_VERSION equal to the workspace
+// version in core/Cargo.toml; CI checks that they match. The release workflow
+// sets CURRENT_PROJECT_VERSION to its run number.
+MARKETING_VERSION = 0.1.0 // x-release-please-version
+CURRENT_PROJECT_VERSION = 1

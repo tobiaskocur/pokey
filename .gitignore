@@ -6,5 +6,5 @@ core/fuzz/artifacts/
 macos/.build/
 macos/*.xcodeproj
 *.key
-!core/edr-core/testdata/**/*.key
+!core/pokey-core/testdata/**/*.key
 dist/

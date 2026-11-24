@@ -11,10 +11,10 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked
 ```
 
-Rules (from the repo root, after `cargo build --release -p edr-rulec` in `core/`):
+Rules (from the repo root, after `cargo build --release -p pokey-rulec` in `core/`):
 
 ```sh
-R=core/target/release/edr-rulec
+R=core/target/release/pokey-rulec
 $R lint --rules rules --deny-warnings
 $R test --rules rules --benign rules/benign --max-ms 50 --max-fuel-pct 50
 ```

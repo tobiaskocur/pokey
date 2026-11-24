@@ -3,10 +3,10 @@
 <plist version="1.0">
 <dict>
 	<key>Label</key><string>@PREFIX@.netd</string>
-	<key>BundleProgram</key><string>Contents/MacOS/edr-netd</string>
+	<key>BundleProgram</key><string>Contents/MacOS/pokey-netd</string>
 	<key>AssociatedBundleIdentifiers</key><array><string>@PREFIX@.host</string></array>
-	<key>UserName</key><string>_edrnet</string>
-	<key>GroupName</key><string>_edrnet</string>
+	<key>UserName</key><string>_pokeynet</string>
+	<key>GroupName</key><string>_pokeynet</string>
 	<key>RunAtLoad</key><true/>
 	<key>KeepAlive</key><true/>
 	<key>ProcessType</key><string>Background</string>

@@ -1,0 +1,17 @@
+[package]
+name = "pokey-rulec"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+pokey-core = { path = "../pokey-core" }
+ed25519-dalek.workspace = true
+rand_core.workspace = true
+hex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true

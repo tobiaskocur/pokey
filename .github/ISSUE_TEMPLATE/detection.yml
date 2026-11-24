@@ -1,0 +1,22 @@
+name: Detection gap or false positive
+description: A file Pokey should have flagged, or a clean file it flagged.
+labels: [rules]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options: [Missed detection, False positive]
+    validations:
+      required: true
+  - type: textarea
+    id: file
+    attributes:
+      label: The file
+      description: File type, SHA-256 and where it came from. Do not attach malware.
+    validations:
+      required: true
+  - type: input
+    id: rules
+    attributes:
+      label: Rule bundle version

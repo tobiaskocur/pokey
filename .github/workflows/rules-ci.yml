@@ -1,6 +1,6 @@
 # Rule changes must lint, pass their fixtures, the benign corpus and the
 # performance budget on the current engine (N) and on the previous engine
-# release (N-1, latest `engine-v*` tag), which deployed sensors may still run.
+# release (N-1, latest `vX.Y.Z` tag), which deployed sensors may still run.
 name: rules
 on:
   pull_request:
@@ -9,8 +9,7 @@ on:
   push:
     branches: [main]
     paths: ["rules/**", "core/**", ".github/workflows/rules-ci.yml"]
-permissions:
-  contents: read
+permissions: {}
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -18,25 +17,32 @@ jobs:
   test:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
         engine: [current, previous]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
-      - uses: dtolnay/rust-toolchain@1.93.1
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master
+        with:
+          toolchain: 1.95.0
       - name: Select engine source
         id: engine
+        env:
+          ENGINE: ${{ matrix.engine }}
         run: |
-          if [ "${{ matrix.engine }}" = current ]; then
+          if [ "$ENGINE" = current ]; then
             echo "dir=core" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          tag=$(git tag --list 'engine-v*' --sort=-v:refname | head -n1)
+          tag=$(git tag --list 'v[0-9]*' --sort=-v:refname | head -n1)
           if [ -z "$tag" ]; then
-            echo "::notice::no engine-v* release tag yet; N-1 check skipped"
+            echo "::notice::no vX.Y.Z release tag yet; N-1 check skipped"
             echo "dir=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -44,9 +50,11 @@ jobs:
           echo "dir=$RUNNER_TEMP/prev/core" >> "$GITHUB_OUTPUT"
       - name: Lint, fixtures, benign corpus, budgets
         if: steps.engine.outputs.dir != ''
+        env:
+          DIR: ${{ steps.engine.outputs.dir }}
         run: |
-          cargo build --release --locked -p edr-rulec --manifest-path "${{ steps.engine.outputs.dir }}/Cargo.toml"
-          RULEC="${{ steps.engine.outputs.dir }}/target/release/edr-rulec"
+          cargo build --release --locked -p pokey-rulec --manifest-path "$DIR/Cargo.toml"
+          RULEC="$DIR/target/release/pokey-rulec"
           "$RULEC" lint --rules rules --deny-warnings
           "$RULEC" test --rules rules --benign rules/benign --max-ms 50 --max-fuel-pct 50
           "$RULEC" compile --rules rules --version 1 --channel canary --expires-days 1 --out "$RUNNER_TEMP/unsigned"

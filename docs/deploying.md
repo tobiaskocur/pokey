@@ -9,7 +9,7 @@ Nothing in the repository is a real identity. To build for your own fleet:
    team on request.
 2. Put your offline root public keys in `macos/Config/trust-roots.txt`.
 3. The installer runs `macos/scripts/create-users.sh` to create the
-   `_edrnet` and `_edrinspect` accounts. The host app then activates the system
+   `_pokeynet` and `_pokeyinspect` accounts. The host app then activates the system
    extension and registers netd and ui. MDM (or the user) approves the system
    extension and grants the sensor Full Disk Access.
 4. For rule releases, configure the `rules-release` environment with the
@@ -24,7 +24,7 @@ GitHub's free plan for private repositories does not offer required reviewers on
 | Area | State |
 | --- | --- |
 | Rust core, rule tool, fuzz targets | Tested in CI (Linux) |
-| Swift logic (EDRCore, EDRRules) | Tested in CI on Linux and macOS |
+| Swift logic (PokeyCore, PokeyRules) | Tested in CI on Linux and macOS |
 | macOS targets and app bundle | Compile in CI on macOS (unsigned) |
 | Endpoint Security events, system extension activation | Not tested: needs the ES entitlement and a signed, notarized build on a real Mac |
 | Inspector sandbox, ImageIO stage, watchdog kills | Not tested on a device |

@@ -1,16 +1,18 @@
 // Deployment identity. Override in Identity.local.xcconfig (not committed) or
 // on the xcodebuild command line; nothing below is a real identity.
-EDR_TEAM_ID = ABCDE12345
-EDR_BUNDLE_PREFIX = org.example.edr
+#include "Version.xcconfig"
+
+POKEY_TEAM_ID = ABCDE12345
+POKEY_BUNDLE_PREFIX = sk.tobiaskocur.pokey
 // k of the keys in trust-roots.txt must sign a release certificate.
-EDR_ROOT_THRESHOLD = 2
-// Where edr-netd fetches the signed rule bundle and posts telemetry (https).
-EDR_RULES_URL = https:/$()/rules.example.org/stable/rules.bundle
-EDR_TELEMETRY_URL =
+POKEY_ROOT_THRESHOLD = 2
+// Where pokey-netd fetches the signed rule bundle and posts telemetry (https).
+POKEY_RULES_URL = https:/$()/rules.example.org/stable/rules.bundle
+POKEY_TELEMETRY_URL =
 // Include the raw kMDItemWhereFroms (download URLs) in telemetry.
-EDR_TELEMETRY_WHEREFROMS = NO
+POKEY_TELEMETRY_WHEREFROMS = NO
 // Provisioning profiles carrying the Endpoint Security and system extension entitlements.
-EDR_SENSOR_PROFILE =
-EDR_HOST_PROFILE =
+POKEY_SENSOR_PROFILE =
+POKEY_HOST_PROFILE =
 
 #include? "Identity.local.xcconfig"

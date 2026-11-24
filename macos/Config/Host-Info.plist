@@ -11,10 +11,10 @@
 	<key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSMinimumSystemVersion</key><string>$(MACOSX_DEPLOYMENT_TARGET)</string>
-	<key>EDRTeamID</key><string>$(EDR_TEAM_ID)</string>
-	<key>EDRBundlePrefix</key><string>$(EDR_BUNDLE_PREFIX)</string>
-	<!-- Read by edr-netd, which runs from Contents/MacOS of this bundle. -->
-	<key>EDRRulesURL</key><string>$(EDR_RULES_URL)</string>
-	<key>EDRTelemetryURL</key><string>$(EDR_TELEMETRY_URL)</string>
+	<key>PokeyTeamID</key><string>$(POKEY_TEAM_ID)</string>
+	<key>PokeyBundlePrefix</key><string>$(POKEY_BUNDLE_PREFIX)</string>
+	<!-- Read by pokey-netd, which runs from Contents/MacOS of this bundle. -->
+	<key>PokeyRulesURL</key><string>$(POKEY_RULES_URL)</string>
+	<key>PokeyTelemetryURL</key><string>$(POKEY_TELEMETRY_URL)</string>
 </dict>
 </plist>

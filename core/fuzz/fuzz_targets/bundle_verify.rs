@@ -1,7 +1,7 @@
 //! Bundle verification on arbitrary bytes must fail cleanly (no panic, no
 //! manifest parse before signatures).
 #![no_main]
-use edr_core::bundle::{verify, TrustAnchors, VerifyMode};
+use pokey_core::bundle::{verify, TrustAnchors, VerifyMode};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {

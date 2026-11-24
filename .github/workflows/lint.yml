@@ -1,0 +1,55 @@
+# Pull request title (it becomes the squash commit and the changelog entry)
+# and a static check of the GitHub workflows.
+name: lint
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, edited, reopened, synchronize]
+  push:
+    branches: [main]
+    paths: [".github/**"]
+permissions: {}
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  pr-title:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: amannn/action-semantic-pull-request@c5e23b7e584519ee15caa684cf60d056aa9f035f # v6.1.3
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          # Keep in sync with changelog-sections in release-please-config.json.
+          types: |
+            feat
+            fix
+            security
+            perf
+            refactor
+            deps
+            revert
+            docs
+            test
+            build
+            ci
+            chore
+          requireScope: false
+  zizmor:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # SARIF upload needs GitHub Advanced Security on a private repository;
+      # print the findings and fail the job instead.
+      - uses: zizmorcore/zizmor-action@bd12b495c90993a4301c73398142281a61499af3 # v0.9.0
+        with:
+          advanced-security: false

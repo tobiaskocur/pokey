@@ -1,6 +1,6 @@
 #!/bin/sh
 # Installer postinstall (root): creates the hidden service accounts used by
-# edr-netd (_edrnet) and edr-inspector (_edrinspect). Idempotent.
+# pokey-netd (_pokeynet) and pokey-inspector (_pokeyinspect). Idempotent.
 set -eu
 [ "$(id -u)" -eq 0 ] || { echo "run as root" >&2; exit 1; }
 
@@ -32,5 +32,5 @@ create() {
     dscl . -create "/Users/$name" IsHidden 1
 }
 
-create _edrnet "EDR network daemon"
-create _edrinspect "EDR file inspector"
+create _pokeynet "Pokey network daemon"
+create _pokeyinspect "Pokey file inspector"

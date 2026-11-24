@@ -9,10 +9,10 @@ flowchart LR
     K[macOS kernel<br/>Endpoint Security] -->|close, rename,<br/>quarantine xattr| S
 
     subgraph Mac
-        S["edr-sensor (root)<br/>system extension<br/>stat, xattr, SHA-256 only"]
-        I["edr-inspector<br/>one process per file<br/>no root, no network, no writes"]
-        N["edr-netd (_edrnet)<br/>network only"]
-        U["edr-ui (user)<br/>notifications"]
+        S["pokey-sensor (root)<br/>system extension<br/>stat, xattr, SHA-256 only"]
+        I["pokey-inspector<br/>one process per file<br/>no root, no network, no writes"]
+        N["pokey-netd (_pokeynet)<br/>network only"]
+        U["pokey-ui (user)<br/>notifications"]
         S -- "read-only fd, rules fd" --> I
         I -- "bounded verdict" --> S
         S -- "alerts" --> U
@@ -34,15 +34,15 @@ flowchart LR
 
 | Component | Runs as | Privileges | Parses untrusted bytes |
 |---|---|---|---|
-| edr-sensor | root, System Extension (OSSystemExtensionRequest) | ES entitlement, Full Disk Access, no network | No (stat, xattr, SHA-256 only) |
-| edr-inspector | spawned by sensor, drops to `_edrinspect`, one process per file | FDs only, sandbox: no network, no writes, hard rlimits | Yes, the only one |
-| edr-netd | LaunchDaemon via SMAppService.daemon, user `_edrnet` | network client only, no FDA, no writes | bundle bytes passed through unparsed |
-| edr-ui | per-user LaunchAgent | notifications, forwards user actions | No |
+| pokey-sensor | root, System Extension (OSSystemExtensionRequest) | ES entitlement, Full Disk Access, no network | No (stat, xattr, SHA-256 only) |
+| pokey-inspector | spawned by sensor, drops to `_pokeyinspect`, one process per file | FDs only, sandbox: no network, no writes, hard rlimits | Yes, the only one |
+| pokey-netd | LaunchDaemon via SMAppService.daemon, user `_pokeynet` | network client only, no FDA, no writes | bundle bytes passed through unparsed |
+| pokey-ui | per-user LaunchAgent | notifications, forwards user actions | No |
 | Host app | /Applications | installs extension, registers daemons | No |
 
-Sensor's only untrusted inputs: inspector replies (strict bounded schema), bundle blobs from netd (signature verified over raw bytes before parsing), allowlisted edr-ui commands. ES messages are trusted.
+Sensor's only untrusted inputs: inspector replies (strict bounded schema), bundle blobs from netd (signature verified over raw bytes before parsing), allowlisted pokey-ui commands. ES messages are trusted.
 
-## Ingestion (edr-sensor)
+## Ingestion (pokey-sensor)
 
 - Subscribe NOTIFY_CLOSE (modified, also was_mapped_writable on 13+), NOTIFY_SETEXTATTR (com.apple.quarantine), NOTIFY_RENAME, NOTIFY_EXIT.
 - Mute own processes (es_mute_process), system prefixes via es_mute_path TARGET_PREFIX; optional es_invert_muting to /Users, /Volumes.
@@ -50,7 +50,7 @@ Sensor's only untrusted inputs: inspector replies (strict bounded schema), bundl
 - Candidate stage (serial queue): debounce per (dev, ino) ~500 ms; open O_RDONLY|O_NOFOLLOW|O_CLOEXEC; fstat must be S_ISREG and match event dev/ino; IOPOL_TYPE_VFS_MATERIALIZE_DATALESS_FILES off, skip SF_DATALESS; fgetxattr com.apple.quarantine required, parse `flags;hex-time;agent;UUID`, keep kMDItemWhereFroms as provenance; size limit; streamed SHA-256; verdict cache keyed (sha256, bundle_version); job journal in root-owned SQLite for restart.
 - Documented scope gap: files without the quarantine xattr (curl, git, extractors) are never candidates.
 
-## Inspection (edr-inspector)
+## Inspection (pokey-inspector)
 
 Lifecycle: sensor creates pipe with one-time nonce, posix_spawn; inspector drops root first (setgroups, setgid, setuid, verify setuid(0) fails); setrlimit hard CPU, FSIZE=0, CORE=0, small NOFILE, NPROC; XPC connect to sensor Mach service (NSEndpointSecurityMachServiceName), sensor accepts only spawned child PID + code-signing requirement + nonce; pre-warm decoders on built-in samples; sandbox_init(kSBXProfilePureComputation); send READY, one job, reply, exit. One pre-warmed worker kept ready.
 
@@ -76,7 +76,7 @@ One XPC protocol per client identity.
 
 ## Data flow
 
-ES event -> filter/debounce/open/identity check/quarantine/hash -> cache miss -> journal -> pre-warmed inspector gets fds -> stage 1 + stage 2 under watchdog -> verdict engine with bundle policy -> cache + event store -> alert via edr-ui + telemetry (optional verdict xattr or root-owned quarantine vault) -> netd pulls telemetry. Future: AUTH_OPEN deny list for flagged inodes, never scan inside AUTH.
+ES event -> filter/debounce/open/identity check/quarantine/hash -> cache miss -> journal -> pre-warmed inspector gets fds -> stage 1 + stage 2 under watchdog -> verdict engine with bundle policy -> cache + event store -> alert via pokey-ui + telemetry (optional verdict xattr or root-owned quarantine vault) -> netd pulls telemetry. Future: AUTH_OPEN deny list for flagged inodes, never scan inside AUTH.
 
 ## Rule pipeline
 
@@ -91,34 +91,34 @@ ES entitlement per distributor (Santa as reference); sandbox_init deprecated (al
 
 ## Processes
 
-1. Sensor (`edr-sensor`, root, system extension). Gets file events from
+1. Sensor (`pokey-sensor`, root, system extension). Gets file events from
    Endpoint Security, ignores files without the quarantine flag, debounces,
    opens the file once, checks it is still the same inode, hashes it, and looks
    up a verdict cache. On a miss it hands the open file descriptor to an
    inspector. It never parses file contents.
-2. Inspector (`edr-inspector`). Spawned by the sensor, drops to the
-   `_edrinspect` user, sets hard resource limits and enters a pure-compute
+2. Inspector (`pokey-inspector`). Spawned by the sensor, drops to the
+   `_pokeyinspect` user, sets hard resource limits and enters a pure-compute
    sandbox before it gets a job. Stage 1 runs YARA-X and the structural schema
    checks; stage 2 asks ImageIO to read the image header and decode one frame.
    A watchdog in the sensor kills it on timeout or memory overuse; a crash or
    malformed reply is itself a verdict.
-3. netd (`edr-netd`, `_edrnet`). Downloads signed rule bundles and uploads
+3. netd (`pokey-netd`, `_pokeynet`). Downloads signed rule bundles and uploads
    telemetry. It passes bundle bytes to the sensor without parsing them.
-4. ui (`edr-ui`, per user). Shows notifications and lets the user
+4. ui (`pokey-ui`, per user). Shows notifications and lets the user
    acknowledge alerts through a short allowlist of commands.
-5. Host app (`EDRHost`). Activates the system extension and registers netd
+5. Host app (`PokeyHost`). Activates the system extension and registers netd
    and ui with `SMAppService`.
 
 ## Source layout
 
 | Path | What |
 | --- | --- |
-| `core/edr-core` | Rule bundles (format, signatures, verification), schema language, scan engine over YARA-X |
-| `core/edr-ffi` | C ABI used from Swift ([`edr_core.h`](../core/edr-ffi/include/edr_core.h)) |
-| `core/edr-rulec` | Rule CLI: lint, test, compile, keys, certificates, sign, verify, scan |
+| `core/pokey-core` | Rule bundles (format, signatures, verification), schema language, scan engine over YARA-X |
+| `core/pokey-ffi` | C ABI used from Swift ([`pokey_core.h`](../core/pokey-ffi/include/pokey_core.h)) |
+| `core/pokey-rulec` | Rule CLI: lint, test, compile, keys, certificates, sign, verify, scan |
 | `core/fuzz` | cargo-fuzz targets |
 | `rules/` | Rules, schemas, policy, fixtures and benign corpus |
-| `macos/Sources/EDRCore`, `EDRRules` | Platform-independent Swift logic and the rules wrapper |
-| `macos/Sources/EDRPlatform` | XPC, code-signing identity and configuration helpers |
-| `macos/Sources/edr-sensor`, `edr-inspector`, `edr-netd`, `edr-ui`, `EDRHost` | The processes above |
+| `macos/Sources/PokeyCore`, `PokeyRules` | Platform-independent Swift logic and the rules wrapper |
+| `macos/Sources/PokeyPlatform` | XPC, code-signing identity and configuration helpers |
+| `macos/Sources/pokey-sensor`, `pokey-inspector`, `pokey-netd`, `pokey-ui`, `PokeyHost` | The processes above |
 | `macos/project.yml`, `macos/Config` | XcodeGen project, identity, Info.plists, entitlements, launchd templates |

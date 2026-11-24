@@ -1,7 +1,7 @@
 //! Schema compiler on arbitrary text; whatever compiles must also round-trip
 //! through the IR loader and run safely.
 #![no_main]
-use edr_core::schema::{compile, run, Limits, Program};
+use pokey_core::schema::{compile, run, Limits, Program};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {

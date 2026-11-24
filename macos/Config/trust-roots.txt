@@ -1,3 +1,3 @@
 # Offline root public keys (ed25519, hex, one per line) that certify release
 # keys. Replace with your own before building; the sensor refuses to start
-# with fewer keys than EDR_ROOT_THRESHOLD.
+# with fewer keys than POKEY_ROOT_THRESHOLD.
